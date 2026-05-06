@@ -1,0 +1,8 @@
+{
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+  "[bat]": {
+    "files.eol": "\r\n"
+  }
+}

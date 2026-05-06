@@ -1,0 +1,16 @@
+# Build artifacts (dmb.exe output, manual zips for Nexus upload)
+*.zip
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor swap files
+*.swp
+*.swo
+*~
+
+# Python (for any future build/CI scripts)
+__pycache__/
+*.pyc

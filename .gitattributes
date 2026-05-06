@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Common Darktide mod binary asset types
+*.zip binary
+*.dds binary
+*.png binary
+*.jpg binary
+*.tga binary
+*.wem binary
+*.bnk binary
+*.exe binary
