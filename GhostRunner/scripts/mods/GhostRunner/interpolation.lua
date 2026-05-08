@@ -26,6 +26,11 @@ end
 -- Given sorted frames and elapsed time, return interpolated state.
 -- Caller maintains an `idx` pointer for amortized O(1) advancement.
 -- Returns: interpolated_frame, new_idx, finished
+--
+-- NOTE: `elapsed` must be monotonically non-decreasing across calls. Passing
+-- a smaller `elapsed` than a previous call leaves `idx` stale and returns
+-- interpolation between the wrong frames. Callers that need to scrub
+-- backwards must reset by passing `idx = 1`.
 interpolation.frame_at = function(frames, idx, elapsed)
 	local n = #frames
 	if n == 0 then return nil, idx, true end

@@ -1,5 +1,8 @@
 local mod = get_mod("GhostRunner")
-local interpolation = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/interpolation")
+-- Reuse the interpolation table loaded by GhostRunner.lua (mod:io_dofile has no
+-- cache, so re-running it here would parse + execute the file a second time
+-- per mod load).
+local interpolation = mod.interpolation
 
 local source = {}
 
