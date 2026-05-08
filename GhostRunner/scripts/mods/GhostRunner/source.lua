@@ -1,0 +1,72 @@
+local mod = get_mod("GhostRunner")
+local interpolation = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/interpolation")
+
+local source = {}
+
+-- ReplaySource: backed by a parsed .run file.
+--   :advance(dt) -> updates internal elapsed, returns (state, finished)
+--   :metadata() -> the meta block
+local ReplaySource = {}
+ReplaySource.__index = ReplaySource
+
+source.create_replay_source = function(run_data)
+	local self = setmetatable({}, ReplaySource)
+	self._frames = run_data.frames
+	self._meta = run_data.metadata
+	self._elapsed = 0
+	self._idx = 1
+	return self
+end
+
+function ReplaySource:advance(dt)
+	self._elapsed = self._elapsed + dt
+	local state, new_idx, finished =
+		interpolation.frame_at(self._frames, self._idx, self._elapsed)
+	self._idx = new_idx
+	return state, finished
+end
+
+function ReplaySource:metadata()
+	return self._meta
+end
+
+function ReplaySource:elapsed()
+	return self._elapsed
+end
+
+function ReplaySource:duration()
+	if #self._frames == 0 then return 0 end
+	return self._frames[#self._frames].t
+end
+
+-- MockSource: scripted state for dev work without a .run file.
+local MockSource = {}
+MockSource.__index = MockSource
+
+source.create_mock_source = function()
+	local self = setmetatable({}, MockSource)
+	self._elapsed = 0
+	return self
+end
+
+function MockSource:advance(dt)
+	self._elapsed = self._elapsed + dt
+	-- A simple oscillating walker for dev visualization.
+	local x = 10.0 + math.sin(self._elapsed) * 5.0
+	local z = 1.8
+	return {
+		t = self._elapsed,
+		p = { x, 20.0, z },
+		y = math.sin(self._elapsed * 0.5),
+		hp = 0.5 + 0.5 * math.sin(self._elapsed * 0.3),
+		peril = 0.5 + 0.5 * math.sin(self._elapsed * 0.7),
+		w = 3,
+		d = false,
+	}, false
+end
+
+function MockSource:metadata()
+	return { player = "Mock", class = "psyker", mission = { name = "mock" } }
+end
+
+return source

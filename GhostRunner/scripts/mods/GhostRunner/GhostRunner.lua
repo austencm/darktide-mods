@@ -16,6 +16,8 @@ mod.fs.ensure_runs_folder()
 mod:info("GhostRunner runs folder: " .. tostring(mod.fs.runs_root))
 
 mod.run_file = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/run_file")
+mod.interpolation = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/interpolation")
+mod.source = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/source")
 
 -- Dev-test helper: writes to the DMF CommandWindow (via global print, which DMF
 -- hooks) AND the in-game chat overlay (via mod:echo). Removed at Task 15
@@ -106,6 +108,33 @@ mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run + in
 	mod.run_file.rebuild_index()
 	local rebuilt = mod.run_file.read_index()
 	_say(string.format("[runfile] rebuild: %d entries", #rebuilt.runs))
+end)
+
+mod:command("ghost_test_source", "GhostRunner: exercise ReplaySource and MockSource", function()
+	-- ReplaySource against the synthetic file from Task 3-4.
+	local data = mod.run_file.read("test-synthetic.run")
+	if not data then
+		mod:error("[source] need test-synthetic.run; run /ghost_test_runfile first")
+		return
+	end
+	local rs = mod.source.create_replay_source(data)
+	_say(string.format("[source] replay duration=%.2fs frames=%d",
+		rs:duration(), #data.frames))
+
+	-- Walk through 6 advances of 0.04s and print position. Should interpolate.
+	for i = 1, 6 do
+		local s, finished = rs:advance(0.04)
+		_say(string.format("[source]   t=%.3f p=(%.2f,%.2f,%.2f) y=%.2f hp=%.2f finished=%s",
+			s.t, s.p[1], s.p[2], s.p[3], s.y, s.hp, tostring(finished)))
+	end
+
+	-- MockSource sanity.
+	local ms = mod.source.create_mock_source()
+	for _ = 1, 3 do
+		local s = ms:advance(0.5)
+		_say(string.format("[source][mock] t=%.2f p=(%.2f,%.2f,%.2f)",
+			s.t, s.p[1], s.p[2], s.p[3]))
+	end
 end)
 
 return mod
