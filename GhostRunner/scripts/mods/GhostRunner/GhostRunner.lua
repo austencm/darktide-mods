@@ -24,7 +24,7 @@ mod:command("ghost_test_fs", "GhostRunner: verify filesystem helpers", function(
 	mod:info("[fs] list_run_files: count=" .. tostring(#mod.fs.list_run_files()))
 end)
 
-mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run file", function()
+mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run + index", function()
 	local filename = "test-synthetic.run"
 	local meta = {
 		player = "TestPlayer",
@@ -45,33 +45,28 @@ mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run file
 		mod:error("[runfile] writer creation failed: " .. tostring(err))
 		return
 	end
-
 	for i = 1, 5 do
 		writer:append_frame({
-			t = i * 0.05,
-			p = { 10.0 + i, 20.0, 1.8 },
-			y = 1.57,
-			hp = 1.0,
-			peril = 0.0,
-			w = 3,
-			d = false,
+			t = i * 0.05, p = { 10.0 + i, 20.0, 1.8 }, y = 1.57,
+			hp = 1.0, peril = 0.0, w = 3, d = false,
 		})
 	end
-
 	writer:finalize("completed", 0.25, true, false)
 	mod:info("[runfile] wrote " .. filename)
 
-	local data, read_err = mod.run_file.read(filename)
-	if not data then
-		mod:error("[runfile] read failed: " .. tostring(read_err))
-		return
-	end
+	local data = mod.run_file.read(filename)
+	mod:info(string.format("[runfile] read: %d frames, outcome=%s",
+		#data.frames, data.footer.outcome))
 
-	mod:info(string.format(
-		"[runfile] read OK: meta=%s frames=%d footer=%s partial=%s",
-		data.metadata.player, #data.frames,
-		data.footer and data.footer.outcome or "nil",
-		tostring(data.partial)))
+	-- Append to index, read back.
+	mod.run_file.append_to_index(filename, data)
+	local idx = mod.run_file.read_index()
+	mod:info(string.format("[runfile] index has %d entries", #idx.runs))
+
+	-- Rebuild from scan and verify equivalence.
+	mod.run_file.rebuild_index()
+	local rebuilt = mod.run_file.read_index()
+	mod:info(string.format("[runfile] rebuild: %d entries", #rebuilt.runs))
 end)
 
 return mod

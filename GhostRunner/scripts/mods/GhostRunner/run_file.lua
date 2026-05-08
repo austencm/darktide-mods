@@ -134,6 +134,90 @@ run_file.read = function(filename)
 	}
 end
 
+-- Index entry shape: { file, mission, difficulty, class, duration, outcome, recorded_at, seed, seed_pinned }
+
+local function _index_entry_from_run(filename, data)
+	return {
+		file = filename,
+		mission = data.metadata.mission and data.metadata.mission.name or "unknown",
+		difficulty = data.metadata.mission and data.metadata.mission.difficulty,
+		class = data.metadata.class,
+		duration = data.footer and data.footer.duration or 0,
+		outcome = data.footer and data.footer.outcome or "partial",
+		recorded_at = data.metadata.recorded_at,
+		seed = data.metadata.mission and data.metadata.mission.seed,
+		seed_pinned = data.footer and data.footer.seed_pinned or false,
+	}
+end
+
+run_file.read_index = function()
+	local index_path = fs.index_path()
+	if not index_path then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	local handle = fs.open_read(index_path)
+	if not handle then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	local content = handle:read("*a")
+	handle:close()
+	if not content or #content == 0 then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	local ok, obj = pcall(cjson.decode, content)
+	if not ok or type(obj) ~= "table" or type(obj.runs) ~= "table" then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	return obj
+end
+
+run_file.write_index = function(index)
+	local index_path = fs.index_path()
+	if not index_path then return false end
+	-- Atomic write: write to .tmp, then rename via `move /Y`.
+	local tmp_path = index_path .. ".tmp"
+	local handle = fs.open_write(tmp_path)
+	if not handle then return false end
+	handle:write(cjson.encode(index))
+	handle:close()
+	local move_handle = Mods.lua.io.popen(string.format(
+		'move /Y "%s" "%s" 2>nul', tmp_path, index_path))
+	if move_handle then move_handle:close() end
+	return true
+end
+
+run_file.append_to_index = function(filename, data)
+	local index = run_file.read_index()
+	-- Remove any existing entry for this filename (shouldn't happen, but be safe).
+	local kept = {}
+	for _, e in ipairs(index.runs) do
+		if e.file ~= filename then kept[#kept + 1] = e end
+	end
+	kept[#kept + 1] = _index_entry_from_run(filename, data)
+	index.runs = kept
+	-- Sort by recorded_at descending (newest first).
+	table.sort(index.runs, function(a, b)
+		return (a.recorded_at or "") > (b.recorded_at or "")
+	end)
+	return run_file.write_index(index)
+end
+
+-- Rebuild index by scanning the runs folder. Slow if many runs; rare path.
+run_file.rebuild_index = function()
+	local files = fs.list_run_files()
+	local entries = {}
+	for _, filename in ipairs(files) do
+		local data = run_file.read(filename)
+		if data then
+			entries[#entries + 1] = _index_entry_from_run(filename, data)
+		end
+	end
+	table.sort(entries, function(a, b)
+		return (a.recorded_at or "") > (b.recorded_at or "")
+	end)
+	return run_file.write_index({ schema = SCHEMA_VERSION, runs = entries })
+end
+
 run_file.SCHEMA_VERSION = SCHEMA_VERSION
 
 return run_file
