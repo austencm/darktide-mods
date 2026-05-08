@@ -116,7 +116,7 @@ run_file.read = function(filename)
 	handle:close()
 
 	if not meta then
-		return nil, "no metadata header in " .. filename
+		return nil, "metadata header missing or unparseable in " .. filename
 	end
 
 	if meta.schema and meta.schema > SCHEMA_VERSION then
