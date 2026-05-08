@@ -19,6 +19,27 @@ mod.run_file = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/run_file")
 mod.interpolation = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/interpolation")
 mod.source = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/source")
 
+mod.recorder = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/recorder")
+
+mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
+	function(func, self, player, player_unit, is_respawn)
+		func(self, player, player_unit, is_respawn)
+
+		if is_respawn then return end
+
+		-- Identity: must be the local player.
+		local local_player = Managers.player and Managers.player:local_player(1)
+		if not local_player or local_player:player_unit() ~= player_unit then
+			return
+		end
+
+		-- Only in solo sessions.
+		if not mod.SoloPlay.is_soloplay() then return end
+
+		-- TODO Task 9: also gate on mod:get("record_runs"). For now always record.
+		mod.recorder.start(player, player_unit)
+	end)
+
 -- Dev-test helper: writes to the DMF CommandWindow (via global print, which DMF
 -- hooks) AND the in-game chat overlay (via mod:echo). Removed at Task 15
 -- alongside the test commands themselves.
@@ -135,6 +156,11 @@ mod:command("ghost_test_source", "GhostRunner: exercise ReplaySource and MockSou
 		_say(string.format("[source][mock] t=%.2f p=(%.2f,%.2f,%.2f)",
 			s.t, s.p[1], s.p[2], s.p[3]))
 	end
+end)
+
+mod:command("ghost_status", "GhostRunner: print recorder/replayer status", function()
+	_say("recorder state: " .. mod.recorder.state())
+	mod.recorder._dump()
 end)
 
 return mod
