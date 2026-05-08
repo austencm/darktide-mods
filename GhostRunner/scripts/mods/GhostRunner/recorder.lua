@@ -76,12 +76,16 @@ local function _read_local_player_name_and_class()
 	local local_player = Managers.player and Managers.player:local_player(1)
 	if not local_player then return "Unknown", "unknown" end
 	local profile = local_player.profile and local_player:profile()
-	local name = profile and profile.character_id or "Unknown"
+	-- profile.name is the display name (e.g. "Sergeant Rho").
+	-- character_id is a UUID; useful only as a unique fallback.
+	local name = profile and (profile.name or profile.character_id) or "Unknown"
 	local class = profile and profile.archetype and profile.archetype.name or "unknown"
 	return name, class
 end
 
 recorder.start = function(player, player_unit)
+	-- Contract: stop_and_save (Task 8) must reset _state.name to idle on
+	-- finalize, otherwise back-to-back missions silently skip recording.
 	if _state.name ~= STATE.idle then
 		mod:warning("recorder: start called in non-idle state; ignoring")
 		return
