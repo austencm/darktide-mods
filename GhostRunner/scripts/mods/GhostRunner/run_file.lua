@@ -166,6 +166,7 @@ run_file.read_index = function()
 	end
 	local ok, obj = pcall(cjson.decode, content)
 	if not ok or type(obj) ~= "table" or type(obj.runs) ~= "table" then
+		mod:warning("index.json present but malformed; treating as empty (run /ghost rebuild_index to repair)")
 		return { schema = SCHEMA_VERSION, runs = {} }
 	end
 	return obj

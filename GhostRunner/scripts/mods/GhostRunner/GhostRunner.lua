@@ -54,7 +54,11 @@ mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run + in
 	writer:finalize("completed", 0.25, true, false)
 	mod:info("[runfile] wrote " .. filename)
 
-	local data = mod.run_file.read(filename)
+	local data, read_err = mod.run_file.read(filename)
+	if not data then
+		mod:error("[runfile] read failed: " .. tostring(read_err))
+		return
+	end
 	mod:info(string.format("[runfile] read: %d frames, outcome=%s",
 		#data.frames, data.footer.outcome))
 
