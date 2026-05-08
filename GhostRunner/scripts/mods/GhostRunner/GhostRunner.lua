@@ -40,6 +40,10 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 		mod.recorder.start(player, player_unit)
 	end)
 
+mod.update = function(dt)
+	mod.recorder.tick(dt)
+end
+
 -- Dev-test helper: writes to the DMF CommandWindow (via global print, which DMF
 -- hooks) AND the in-game chat overlay (via mod:echo). Removed at Task 15
 -- alongside the test commands themselves.

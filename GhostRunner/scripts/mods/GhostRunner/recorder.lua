@@ -128,9 +128,116 @@ recorder.start = function(player, player_unit)
 		filename, tostring(mission.name), tostring(mission.seed)))
 end
 
--- Sampling implementation comes in Task 7.
+local function _read_state(unit)
+	-- Position
+	local pos = Unit.world_position(unit, 1)
+	local p = { Vector3.to_elements(pos) }
+
+	-- Yaw (Quaternion -> yaw)
+	local rot = Unit.local_rotation(unit, 1)
+	local y = Quaternion.yaw(rot)
+
+	-- HP
+	local hp = 0
+	local hp_ext = ScriptUnit.has_extension(unit, "health_system")
+	if hp_ext then
+		-- Try common API surfaces; verified during smoke test.
+		if hp_ext.current_health_percent then
+			hp = hp_ext:current_health_percent()
+		elseif hp_ext.current_health and hp_ext.max_health then
+			local cur = hp_ext:current_health()
+			local mx = hp_ext:max_health()
+			hp = mx > 0 and (cur / mx) or 0
+		end
+	end
+
+	-- Peril (warp_charge component)
+	local peril = 0
+	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
+	if unit_data then
+		local wc = unit_data:read_component("warp_charge")
+		if wc and wc.current_percentage then
+			peril = wc.current_percentage
+		end
+	end
+
+	-- Wounds
+	local w = 0
+	if hp_ext and hp_ext.num_wounds then
+		w = hp_ext:num_wounds()
+	elseif unit_data then
+		local hc = unit_data:read_component("health")
+		w = (hc and hc.current_wounds) or 0
+	end
+
+	-- Downed/dead
+	local d = false
+	local csm = ScriptUnit.has_extension(unit, "character_state_machine_system")
+	if csm and csm.current_state then
+		local cs = csm:current_state()
+		if cs == "knocked_down" or cs == "dead" or cs == "hogtied" or cs == "consumed" then
+			d = true
+		end
+	end
+
+	return p, y, hp, peril, w, d
+end
+
+local function _flush(writer)
+	writer:flush()
+end
+
 recorder.tick = function(dt)
-	-- intentionally empty until Task 7
+	if _state.name ~= STATE.recording then return end
+	if not Unit.alive(_state.player_unit) then
+		recorder._abandon("aborted")
+		return
+	end
+
+	_state.accumulator = _state.accumulator + dt
+	_state.flush_accumulator = _state.flush_accumulator + dt
+
+	while _state.accumulator >= SAMPLE_INTERVAL do
+		_state.accumulator = _state.accumulator - SAMPLE_INTERVAL
+		_state.last_sample_t = _state.last_sample_t + SAMPLE_INTERVAL
+
+		local ok, p, y, hp, peril, w, d = pcall(_read_state, _state.player_unit)
+		if not ok then
+			mod:warning("recorder: read_state failed: " .. tostring(p))
+			return
+		end
+
+		_state.writer:append_frame({
+			t = _state.last_sample_t,
+			p = p,
+			y = y,
+			hp = hp,
+			peril = peril,
+			w = w,
+			d = d,
+		})
+		_state.flush_frame_count = _state.flush_frame_count + 1
+	end
+
+	if _state.flush_frame_count >= FLUSH_FRAME_THRESHOLD
+	   or _state.flush_accumulator >= FLUSH_INTERVAL then
+		_flush(_state.writer)
+		_state.flush_accumulator = 0
+		_state.flush_frame_count = 0
+	end
+end
+
+recorder._abandon = function(outcome)
+	if _state.name ~= STATE.recording then return end
+	if _state.writer then
+		_state.writer:finalize(outcome or "aborted",
+			_state.last_sample_t, _state.seed ~= nil, false)
+		run_file.append_to_index(_state.filename, run_file.read(_state.filename))
+		_state.writer = nil
+	end
+	_state.name = STATE.finalized
+	mod:info(string.format("recorder: abandoned (outcome=%s, %.2fs)",
+		outcome or "aborted", _state.last_sample_t))
 end
 
 -- Finalization comes in Task 8.
