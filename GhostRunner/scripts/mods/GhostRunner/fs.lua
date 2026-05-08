@@ -30,10 +30,12 @@ fs.ensure_runs_folder = function()
 end
 
 fs.runs_path = function(filename)
+	if not fs.runs_root then return nil end
 	return fs.runs_root .. "\\" .. filename
 end
 
 fs.index_path = function()
+	if not fs.runs_root then return nil end
 	return fs.runs_root .. "\\index.json"
 end
 
@@ -66,7 +68,8 @@ end
 -- Open Explorer at the runs folder (used by the keybind in Task 9).
 fs.open_runs_folder = function()
 	if not fs.runs_root then return end
-	Mods.lua.io.popen(string.format('explorer "%s"', fs.runs_root))
+	local handle = Mods.lua.io.popen(string.format('explorer "%s"', fs.runs_root))
+	if handle then handle:close() end
 end
 
 return fs
