@@ -14,3 +14,6 @@ desktop.ini
 # Python (for any future build/CI scripts)
 __pycache__/
 *.pyc
+
+# Claude Code per-user settings (machine-specific paths)
+.claude/settings.local.json
