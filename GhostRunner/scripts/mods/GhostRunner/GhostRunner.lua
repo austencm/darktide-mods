@@ -37,6 +37,28 @@ mod:command("ghost_test_fs", "GhostRunner: verify filesystem helpers", function(
 	end
 end)
 
+-- Diagnostic: reports whether DMF's print hook is actually installed.
+-- If `print == __print` the hook never installed; CommandWindow output
+-- will not work regardless of what the DMF settings say.
+mod:command("ghost_diag_print", "GhostRunner: diagnose DMF print hook state", function()
+	local hooked = print ~= __print
+	mod:echo(string.format("[diag] print == __print: %s (hook %s)",
+		tostring(print == __print),
+		hooked and "INSTALLED" or "MISSING"))
+	mod:echo(string.format("[diag] tostring(print): %s", tostring(print)))
+	mod:echo(string.format("[diag] tostring(__print): %s", tostring(__print)))
+
+	-- Also try a direct CommandWindow.print bypassing print global, to see
+	-- whether the engine API itself is responsive.
+	if CommandWindow and CommandWindow.print then
+		local cw_ok = pcall(CommandWindow.print, "[diag] direct CommandWindow.print test")
+		mod:echo(string.format("[diag] CommandWindow.print direct call: %s",
+			cw_ok and "OK" or "ERRORED"))
+	else
+		mod:echo("[diag] CommandWindow.print not available")
+	end
+end)
+
 mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run + index", function()
 	local filename = "test-synthetic.run"
 	local meta = {
