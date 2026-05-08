@@ -18,10 +18,15 @@ mod:info("GhostRunner runs folder: " .. tostring(mod.fs.runs_root))
 mod.run_file = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/run_file")
 
 mod:command("ghost_test_fs", "GhostRunner: verify filesystem helpers", function()
-	mod:info("[fs] runs_root: " .. tostring(mod.fs.runs_root))
-	mod:info("[fs] runs_path('foo.run'): " .. tostring(mod.fs.runs_path("foo.run")))
-	mod:info("[fs] index_path: " .. tostring(mod.fs.index_path()))
-	mod:info("[fs] list_run_files: count=" .. tostring(#mod.fs.list_run_files()))
+	local ok, err = pcall(function()
+		mod:echo("[fs] runs_root: " .. tostring(mod.fs.runs_root))
+		mod:echo("[fs] runs_path('foo.run'): " .. tostring(mod.fs.runs_path("foo.run")))
+		mod:echo("[fs] index_path: " .. tostring(mod.fs.index_path()))
+		mod:echo("[fs] list_run_files: count=" .. tostring(#mod.fs.list_run_files()))
+	end)
+	if not ok then
+		mod:error("[fs] callback errored: " .. tostring(err))
+	end
 end)
 
 mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run + index", function()
@@ -52,25 +57,25 @@ mod:command("ghost_test_runfile", "GhostRunner: write+read a synthetic .run + in
 		})
 	end
 	writer:finalize("completed", 0.25, true, false)
-	mod:info("[runfile] wrote " .. filename)
+	mod:echo("[runfile] wrote " .. filename)
 
 	local data, read_err = mod.run_file.read(filename)
 	if not data then
 		mod:error("[runfile] read failed: " .. tostring(read_err))
 		return
 	end
-	mod:info(string.format("[runfile] read: %d frames, outcome=%s",
+	mod:echo(string.format("[runfile] read: %d frames, outcome=%s",
 		#data.frames, data.footer.outcome))
 
 	-- Append to index, read back.
 	mod.run_file.append_to_index(filename, data)
 	local idx = mod.run_file.read_index()
-	mod:info(string.format("[runfile] index has %d entries", #idx.runs))
+	mod:echo(string.format("[runfile] index has %d entries", #idx.runs))
 
 	-- Rebuild from scan and verify equivalence.
 	mod.run_file.rebuild_index()
 	local rebuilt = mod.run_file.read_index()
-	mod:info(string.format("[runfile] rebuild: %d entries", #rebuilt.runs))
+	mod:echo(string.format("[runfile] rebuild: %d entries", #rebuilt.runs))
 end)
 
 return mod
