@@ -11,6 +11,9 @@ local _state = {
 	last_state = nil,	-- last interpolated frame, for renderer consumption
 }
 
+local _seed_pin_active = false   -- true if our session_seed override should fire
+local _pinned_seed_value = nil
+
 replayer.state = function() return _state.name end
 replayer.last_state = function() return _state.last_state end
 replayer.elapsed = function()
@@ -30,6 +33,79 @@ local function _format_duration(secs)
 	return string.format("%d:%02d", m, s)
 end
 
+local function _try_set_game_parameters_seed(seed)
+	-- Path 1: direct write to GameParameters.level_seed.
+	-- GameParameters is loaded at engine startup; whether it's runtime-mutable
+	-- is uncertain, so wrap in pcall and verify the write stuck.
+	local ok = pcall(function()
+		rawset(GameParameters, "level_seed", seed)
+	end)
+	if not ok then return false end
+	return GameParameters.level_seed == seed
+end
+
+local function _install_session_seed_hook(seed)
+	-- Path 2: wrap Managers.connection:session_seed to return our seed
+	-- when seed-pin is active. The hook is installed once and re-used
+	-- across arm/disarm cycles via the _seed_pin_active flag.
+	if not Managers.connection or not Managers.connection.session_seed then
+		return false
+	end
+	if Managers.connection.__ghostrunner_seed_patched then
+		return true
+	end
+	local original = Managers.connection.session_seed
+	Managers.connection.session_seed = function(self, ...)
+		if _seed_pin_active and _pinned_seed_value then
+			return _pinned_seed_value
+		end
+		return original(self, ...)
+	end
+	Managers.connection.__ghostrunner_seed_patched = true
+	return true
+end
+
+replayer.try_pin_seed = function(seed)
+	if not seed then
+		mod:warning("replayer: ghost has no seed; cannot pin")
+		return false
+	end
+
+	-- Try direct path first.
+	if _try_set_game_parameters_seed(seed) then
+		_seed_pin_active = false
+		_pinned_seed_value = nil
+		mod:info(string.format("replayer: seed pinned via GameParameters: %d", seed))
+		return true
+	end
+
+	-- Fallback: session_seed hook.
+	if _install_session_seed_hook(seed) then
+		_seed_pin_active = true
+		_pinned_seed_value = seed
+		mod:info(string.format("replayer: seed pinned via session_seed hook: %d", seed))
+		return true
+	end
+
+	mod:warning("replayer: could not pin seed -- replay will use engine seed")
+	return false
+end
+
+replayer.unpin_seed = function()
+	_seed_pin_active = false
+	_pinned_seed_value = nil
+	-- We deliberately do NOT un-monkey-patch Managers.connection.session_seed --
+	-- the patch checks `_seed_pin_active` so it's a no-op when disabled.
+end
+
+-- Public accessor used by the recorder to know whether the seed it's recording
+-- was forced (so the .run footer reflects deterministic-replay availability).
+replayer.is_seed_pinned = function()
+	return _seed_pin_active or (GameParameters.level_seed ~= nil)
+	-- The direct-write path doesn't keep _seed_pin_active true (it set
+	-- GameParameters and exits). Both paths are checked.
+end
+
 replayer.arm_with_selected_ghost = function()
 	if not mod._selected_ghost then
 		_state.name = STATE.idle
@@ -47,8 +123,8 @@ replayer.arm_with_selected_ghost = function()
 	mod:info(string.format("replayer: armed with %s (%.1fs)",
 		mod._selected_ghost.filename, _state.source:duration()))
 
-	-- TODO Task 12: attempt to pin the level seed for the upcoming mission
-	-- via try_pin_seed(mod._selected_ghost.data.metadata.mission.seed).
+	local m = _state.source:metadata().mission
+	replayer.try_pin_seed(m and m.seed)
 
 	return true
 end
@@ -57,6 +133,7 @@ replayer.disarm = function()
 	_state.name = STATE.idle
 	_state.source = nil
 	_state.last_state = nil
+	replayer.unpin_seed()
 end
 
 -- Called from on_player_unit_spawn after the recorder is started.

@@ -126,7 +126,10 @@ recorder.start = function(player, player_unit)
 	_state.flush_accumulator = 0
 	_state.flush_frame_count = 0
 	_state.seed = mission.seed
-	_state.seed_pinned = false  -- Task 12 will set true when it forces a seed.
+	-- Task 12: if the replayer pinned a seed before this mission started,
+	-- the recording's footer should reflect that the level RNG was forced
+	-- to a known value.
+	_state.seed_pinned = (mod.replayer and mod.replayer.is_seed_pinned and mod.replayer.is_seed_pinned()) or false
 	_state.metadata = meta
 	_state.filename = filename
 
