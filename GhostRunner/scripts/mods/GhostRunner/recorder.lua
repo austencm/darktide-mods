@@ -65,14 +65,17 @@ local function _read_mission_metadata()
 end
 
 local function _read_level_seed()
-	-- Spec §4: "Managers.state.game_mode.shared_state.level_seed (or wherever it surfaces)"
-	-- shared_state lives on the game mode; check both common locations.
-	local gm_mgr = Managers.state and Managers.state.game_mode
-	if gm_mgr and gm_mgr._game_mode and gm_mgr._game_mode._shared_state then
-		return gm_mgr._game_mode._shared_state.level_seed
+	-- The engine assigns shared_state.level_seed from
+	--   GameParameters.level_seed or Managers.connection:session_seed()
+	-- (see scripts/game_states/game/state_gameplay.lua). The shared_state
+	-- table itself is local to that init function and not exposed on a
+	-- manager, so we read from the same two sources directly.
+	if GameParameters and GameParameters.level_seed then
+		return GameParameters.level_seed
 	end
-	if gm_mgr and gm_mgr.shared_state then
-		return gm_mgr.shared_state.level_seed
+	if Managers.connection and Managers.connection.session_seed then
+		local ok, seed = pcall(Managers.connection.session_seed, Managers.connection)
+		if ok and seed then return seed end
 	end
 	return nil
 end
