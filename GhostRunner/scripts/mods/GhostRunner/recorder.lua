@@ -243,9 +243,41 @@ recorder._abandon = function(outcome)
 		outcome or "aborted", _state.last_sample_t))
 end
 
--- Finalization comes in Task 8.
 recorder.stop_and_save = function(outcome, on_shutdown)
-	-- intentionally empty until Task 8
+	if _state.name ~= STATE.recording then return end
+	if not _state.writer then return end
+
+	_state.writer:flush()
+	local mapped_outcome
+	if outcome == "completed" or outcome == "complete" or outcome == "won" then
+		mapped_outcome = "completed"
+	elseif outcome == "fail" or outcome == "failed" or outcome == "lost" then
+		mapped_outcome = "failed"
+	else
+		mapped_outcome = "aborted"
+	end
+
+	_state.writer:finalize(mapped_outcome, _state.last_sample_t,
+		_state.seed_pinned, on_shutdown)
+	_state.writer = nil
+
+	-- Reload the just-written file to populate the index entry from canonical data.
+	local data = run_file.read(_state.filename)
+	if data then
+		run_file.append_to_index(_state.filename, data)
+	end
+
+	mod:info(string.format("recorder: saved %s (outcome=%s, %.2fs)",
+		_state.filename, mapped_outcome, _state.last_sample_t))
+
+	-- Reset for the next mission. The recorder.start guard relies on this.
+	_state.name = STATE.idle
+	_state.writer = nil
+	_state.player_unit = nil
+	_state.last_sample_t = 0
+	_state.accumulator = 0
+	_state.flush_accumulator = 0
+	_state.flush_frame_count = 0
 end
 
 -- Internal helper exposed for diagnostics.

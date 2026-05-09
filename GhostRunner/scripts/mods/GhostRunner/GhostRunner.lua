@@ -40,6 +40,16 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 		mod.recorder.start(player, player_unit)
 	end)
 
+mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
+	function(GameModeBase)
+		mod:hook(GameModeBase, "mission_cleanup",
+			function(func, self, on_shutdown)
+				local outcome = self._state or "aborted"
+				mod.recorder.stop_and_save(outcome, on_shutdown)
+				func(self, on_shutdown)
+			end)
+	end)
+
 mod.update = function(dt)
 	-- Outer pcall: any one tick subsystem throwing should not silently kill
 	-- the whole frame loop for the others. Future tasks add replayer.tick
