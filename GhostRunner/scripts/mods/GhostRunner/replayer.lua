@@ -11,8 +11,9 @@ local _state = {
 	last_state = nil,	-- last interpolated frame, for renderer consumption
 }
 
-local _seed_pin_active = false   -- true if our session_seed override should fire
+local _seed_pin_active = false   -- true while a pinned seed is in effect
 local _pinned_seed_value = nil
+local _seed_pin_path = nil       -- "game_parameters" | "session_seed_hook" | nil
 
 replayer.state = function() return _state.name end
 replayer.last_state = function() return _state.last_state end
@@ -73,8 +74,9 @@ replayer.try_pin_seed = function(seed)
 
 	-- Try direct path first.
 	if _try_set_game_parameters_seed(seed) then
-		_seed_pin_active = false
-		_pinned_seed_value = nil
+		_seed_pin_active = true
+		_pinned_seed_value = seed
+		_seed_pin_path = "game_parameters"
 		mod:info(string.format("replayer: seed pinned via GameParameters: %d", seed))
 		return true
 	end
@@ -83,6 +85,7 @@ replayer.try_pin_seed = function(seed)
 	if _install_session_seed_hook(seed) then
 		_seed_pin_active = true
 		_pinned_seed_value = seed
+		_seed_pin_path = "session_seed_hook"
 		mod:info(string.format("replayer: seed pinned via session_seed hook: %d", seed))
 		return true
 	end
@@ -92,18 +95,25 @@ replayer.try_pin_seed = function(seed)
 end
 
 replayer.unpin_seed = function()
+	-- If we wrote GameParameters.level_seed, clear it so a subsequent fresh
+	-- recording (no ghost loaded) doesn't falsely report seed_pinned=true via
+	-- is_seed_pinned()'s GameParameters check.
+	if _seed_pin_path == "game_parameters" then
+		pcall(function() rawset(GameParameters, "level_seed", nil) end)
+	end
 	_seed_pin_active = false
 	_pinned_seed_value = nil
+	_seed_pin_path = nil
 	-- We deliberately do NOT un-monkey-patch Managers.connection.session_seed --
 	-- the patch checks `_seed_pin_active` so it's a no-op when disabled.
 end
 
 -- Public accessor used by the recorder to know whether the seed it's recording
 -- was forced (so the .run footer reflects deterministic-replay availability).
+-- Reads only the active flag now -- GameParameters.level_seed isn't a
+-- reliable signal because we may have failed to write/clear it.
 replayer.is_seed_pinned = function()
-	return _seed_pin_active or (GameParameters.level_seed ~= nil)
-	-- The direct-write path doesn't keep _seed_pin_active true (it set
-	-- GameParameters and exits). Both paths are checked.
+	return _seed_pin_active
 end
 
 replayer.arm_with_selected_ghost = function()
