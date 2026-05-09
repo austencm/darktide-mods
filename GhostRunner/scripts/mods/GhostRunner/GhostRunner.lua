@@ -85,7 +85,14 @@ mod.update = function(dt)
 	if not ok then mod:warning("recorder.tick error: " .. tostring(err)) end
 
 	local ok2, err2 = pcall(mod.replayer.tick, dt)
-	if not ok2 then mod:warning("replayer.tick error: " .. tostring(err2)) end
+	if not ok2 then
+		mod:warning("replayer.tick error: " .. tostring(err2))
+		-- Disarm to break the loop; otherwise the next tick re-enters and
+		-- re-throws. A 20-30 Hz error stream into the DMF print hook is
+		-- enough to trigger the 16s engine watchdog deadlock if the user
+		-- accidentally selects text in the dev console.
+		mod.replayer.disarm()
+	end
 end
 
 -- Keybind callback for "open runs folder" in F4 settings. Must be on the
