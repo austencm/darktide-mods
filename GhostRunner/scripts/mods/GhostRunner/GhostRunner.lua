@@ -78,6 +78,19 @@ mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
 			end)
 	end)
 
+mod:register_hud_element({
+	class_name = "HudElementGhostBeacon",
+	filename = "GhostRunner/scripts/mods/GhostRunner/hud_beacon",
+	use_hud_scale = true,
+	visibility_groups = { "alive" },
+	validation_function = function()
+		-- Don't render in hub.
+		local game_mode_manager = Managers.state and Managers.state.game_mode
+		local game_mode_name = game_mode_manager and game_mode_manager:game_mode_name()
+		return game_mode_name ~= "hub"
+	end,
+})
+
 mod.update = function(dt)
 	-- Outer pcall: any one tick subsystem throwing should not silently kill
 	-- the whole frame loop for the others.
@@ -93,6 +106,16 @@ mod.update = function(dt)
 		-- accidentally selects text in the dev console.
 		mod.replayer.disarm()
 	end
+
+	local ok3, err3 = pcall(function()
+		local ui_manager = Managers.ui
+		local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
+		if not hud then return end
+		local element = hud:element("HudElementGhostBeacon")
+		if not element or not element.set_active then return end
+		element:set_active(mod.replayer.state() == "playing")
+	end)
+	if not ok3 then mod:warning("hud_beacon update error: " .. tostring(err3)) end
 end
 
 -- Keybind callback for "open runs folder" in F4 settings. Must be on the
