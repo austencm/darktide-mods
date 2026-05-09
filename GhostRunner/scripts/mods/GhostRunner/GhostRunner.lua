@@ -109,10 +109,15 @@ local function _say(msg)
 	mod:echo(msg)
 end
 
-mod:command("ghost", "GhostRunner: ghost picker -- see /ghost help", function(arg)
-	arg = arg or ""
-	local sub, rest = arg:match("^(%S+)%s*(.*)$")
-	sub = sub or ""
+-- DMF splits chat input by whitespace and passes each token as a separate
+-- vararg to the callback (see dmf/scripts/mods/dmf/modules/ui/chat/chat_actions.lua
+-- around line 113-115). So `/ghost load 1` calls us with `("load", "1")`,
+-- not `("load 1")`. Use varargs to capture everything; rejoin remaining
+-- tokens with spaces for `cmd_load` (handles filenames with spaces too).
+mod:command("ghost", "GhostRunner: ghost picker -- see /ghost help", function(...)
+	local args = { ... }
+	local sub = (args[1] or ""):lower()
+	local rest = #args > 1 and table.concat(args, " ", 2) or ""
 
 	if sub == "list" then
 		mod.commands.cmd_list()
@@ -123,9 +128,9 @@ mod:command("ghost", "GhostRunner: ghost picker -- see /ghost help", function(ar
 	elseif sub == "info" then
 		mod.commands.cmd_info()
 	elseif sub == "help" or sub == "" then
-		mod:notify("Commands: /ghost list | /ghost load <n> | /ghost clear | /ghost info")
+		mod:echo("Commands: /ghost list | /ghost load <n> | /ghost clear | /ghost info")
 	else
-		mod:notify("Unknown subcommand. Try /ghost help.")
+		mod:echo("Unknown subcommand. Try /ghost help.")
 	end
 end)
 

@@ -21,10 +21,10 @@ end
 commands.cmd_list = function()
 	local idx = run_file.read_index()
 	if #idx.runs == 0 then
-		mod:notify("GhostRunner: no saved runs yet.")
+		mod:echo("GhostRunner: no saved runs yet.")
 		return
 	end
-	mod:notify(_color("GhostRunner -- saved runs (newest first):", 200, 200, 255))
+	mod:echo(_color("GhostRunner -- saved runs (newest first):", 200, 200, 255))
 	for i, e in ipairs(idx.runs) do
 		local sel_marker = ""
 		if mod._selected_ghost and mod._selected_ghost.filename == e.file then
@@ -37,13 +37,13 @@ commands.cmd_list = function()
 			e.recorded_at or "?",
 			e.class or "?",
 			sel_marker)
-		mod:notify(line)
+		mod:echo(line)
 	end
 end
 
 commands.cmd_load = function(arg)
 	if not arg or arg == "" then
-		mod:notify("Usage: /ghost load <number-from-list> or <filename>")
+		mod:echo("Usage: /ghost load <number-from-list> or <filename>")
 		return
 	end
 
@@ -64,13 +64,13 @@ commands.cmd_load = function(arg)
 	end
 
 	if not entry then
-		mod:notify("Could not find that run. Try /ghost list.")
+		mod:echo("Could not find that run. Try /ghost list.")
 		return
 	end
 
 	local data, read_err = run_file.read(entry.file)
 	if not data then
-		mod:notify("Could not read " .. entry.file .. ": " .. tostring(read_err))
+		mod:echo("Could not read " .. entry.file .. ": " .. tostring(read_err))
 		return
 	end
 
@@ -89,7 +89,7 @@ commands.cmd_load = function(arg)
 
 	mod.replayer.arm_with_selected_ghost()
 
-	mod:notify(string.format("Loaded: %s D%s (%s, %s). Mission params auto-set. Hit Start in SoloPlay.",
+	mod:echo(string.format("Loaded: %s D%s (%s, %s). Mission params auto-set. Hit Start in SoloPlay.",
 		m and m.name or "?",
 		tostring(m and m.difficulty or "?"),
 		_format_duration(data.footer and data.footer.duration or 0),
@@ -99,18 +99,18 @@ end
 commands.cmd_clear = function()
 	mod._selected_ghost = nil
 	mod.replayer.disarm()
-	mod:notify("Ghost cleared.")
+	mod:echo("Ghost cleared.")
 end
 
 commands.cmd_info = function()
 	if not mod._selected_ghost then
-		mod:notify("No ghost loaded. Use /ghost load <n> after /ghost list.")
+		mod:echo("No ghost loaded. Use /ghost load <n> after /ghost list.")
 		return
 	end
 	local g = mod._selected_ghost
 	local m = g.data.metadata.mission
 	local dur = g.data.footer and g.data.footer.duration or 0
-	mod:notify(string.format("Ghost: %s D%s  duration=%s  frames=%d  seed=%s%s",
+	mod:echo(string.format("Ghost: %s D%s  duration=%s  frames=%d  seed=%s%s",
 		m and m.name or "?",
 		tostring(m and m.difficulty or "?"),
 		_format_duration(dur),
