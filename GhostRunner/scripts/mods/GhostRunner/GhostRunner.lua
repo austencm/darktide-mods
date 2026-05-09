@@ -113,7 +113,44 @@ mod.update = function(dt)
 		if not hud then return end
 		local element = hud:element("HudElementGhostBeacon")
 		if not element or not element.set_active then return end
-		element:set_active(mod.replayer.state() == "playing")
+
+		-- Hide if not currently playing.
+		if mod.replayer.state() ~= "playing" then
+			element:set_active(false)
+			return
+		end
+
+		-- Pull the latest interpolated remote-player state.
+		local s = mod.replayer.last_state()
+		if not s or not s.p then
+			element:set_active(false)
+			return
+		end
+
+		-- Camera lookup. The HUD's player_camera() is the same one the
+		-- engine's world markers use; if it's not yet available (early
+		-- frames), hide the widget.
+		local camera = hud.player_camera and hud:player_camera()
+		if not camera then
+			element:set_active(false)
+			return
+		end
+
+		-- Project to screen. Hide if behind the camera or out of frustum.
+		local world_pos = Vector3(s.p[1], s.p[2], s.p[3])
+		if Camera.inside_frustum(camera, world_pos) <= 0 then
+			element:set_active(false)
+			return
+		end
+
+		local screen_pos, distance = Camera.world_to_screen(camera, world_pos)
+		if not screen_pos or not distance or distance <= 0 then
+			element:set_active(false)
+			return
+		end
+
+		element:set_active(true)
+		element:set_offset(screen_pos.x, screen_pos.y)
 	end)
 	if not ok3 then mod:warning("hud_beacon update error: " .. tostring(err3)) end
 end

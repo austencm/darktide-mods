@@ -8,8 +8,8 @@ local ui_definitions = {
 		screen = UIWorkspaceSettings.screen,
 		ghost_beacon_area = {
 			parent             = "screen",
-			vertical_alignment = "center",
-			horizontal_alignment = "center",
+			vertical_alignment = "top",
+			horizontal_alignment = "left",
 			size               = { 200, 40 },
 			position           = { 0, 0, 5 },
 		},
@@ -30,6 +30,10 @@ local ui_definitions = {
 					vertical_alignment        = "center",
 					text_color                = { 255, 180, 220, 255 },
 					drop_shadow               = true,
+					-- Center the text around (offset[1], offset[2]) so the
+					-- world-projected pixel is the visual center, not the
+					-- top-left of the bounding box.
+					offset                    = { -100, -20, 0 },
 				},
 			},
 		}, "ghost_beacon_area"),
