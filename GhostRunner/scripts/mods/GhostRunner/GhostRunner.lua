@@ -28,8 +28,11 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 		if is_respawn then return end
 
 		-- Identity: must be the local player.
+		-- Compare Player instances directly. `local_player.player_unit` is a
+		-- userdata field (the Unit), not a method -- calling :player_unit()
+		-- crashes with "attempt to call method on userdata value".
 		local local_player = Managers.player and Managers.player:local_player(1)
-		if not local_player or local_player:player_unit() ~= player_unit then
+		if not local_player or player ~= local_player then
 			return
 		end
 
