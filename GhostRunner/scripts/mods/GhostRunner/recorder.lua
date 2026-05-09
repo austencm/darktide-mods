@@ -4,7 +4,11 @@ local run_file = mod.run_file
 
 local recorder = {}
 
-local STATE = { idle = "idle", recording = "recording", finalized = "finalized" }
+-- Two states are sufficient: idle (no mission, ready to start) and recording
+-- (capturing a live mission). The design spec described a "finalized" interim
+-- state but both terminate-recording paths (stop_and_save and _abandon) reset
+-- straight to idle since nothing distinguishes them externally.
+local STATE = { idle = "idle", recording = "recording" }
 
 local _state = {
 	name = STATE.idle,
@@ -229,6 +233,20 @@ recorder.tick = function(dt)
 	end
 end
 
+-- Reset to idle for the next mission. Both stop_and_save and _abandon
+-- terminate a recording, and BOTH must end with name = STATE.idle so the
+-- recorder.start guard accepts the next mission's spawn hook. Without
+-- this, _abandon used to leave state in "finalized" and the next mission
+-- silently no-op'd with "recorder: start called in non-idle state".
+local function _reset_to_idle()
+	_state.name = STATE.idle
+	_state.player_unit = nil
+	_state.last_sample_t = 0
+	_state.accumulator = 0
+	_state.flush_accumulator = 0
+	_state.flush_frame_count = 0
+end
+
 recorder._abandon = function(outcome)
 	if _state.name ~= STATE.recording then return end
 	if _state.writer then
@@ -237,10 +255,9 @@ recorder._abandon = function(outcome)
 		run_file.append_to_index(_state.filename, run_file.read(_state.filename))
 		_state.writer = nil
 	end
-	_state.player_unit = nil  -- drop the (possibly invalid) unit reference
-	_state.name = STATE.finalized
 	mod:info(string.format("recorder: abandoned (outcome=%s, %.2fs)",
 		outcome or "aborted", _state.last_sample_t))
+	_reset_to_idle()
 end
 
 recorder.stop_and_save = function(outcome, on_shutdown)
@@ -270,15 +287,7 @@ recorder.stop_and_save = function(outcome, on_shutdown)
 	mod:info(string.format("recorder: saved %s (outcome=%s, %.2fs)",
 		_state.filename, mapped_outcome, _state.last_sample_t))
 
-	-- Reset for the next mission. Only `name = STATE.idle` is load-bearing for
-	-- the recorder.start guard; the other fields are belt-and-suspenders since
-	-- recorder.start re-initializes everything anyway.
-	_state.name = STATE.idle
-	_state.player_unit = nil
-	_state.last_sample_t = 0
-	_state.accumulator = 0
-	_state.flush_accumulator = 0
-	_state.flush_frame_count = 0
+	_reset_to_idle()
 end
 
 -- Internal helper exposed for diagnostics.
