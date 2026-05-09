@@ -23,6 +23,8 @@ mod.recorder = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/recorder")
 
 mod.commands = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/commands")
 
+mod.replayer = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/replayer")
+
 mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 	function(func, self, player, player_unit, is_respawn)
 		func(self, player, player_unit, is_respawn)
@@ -41,11 +43,13 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 		-- Only in solo sessions.
 		if not mod.SoloPlay.is_soloplay() then return end
 
-		-- User-controlled gate: skip recording entirely if the user has
-		-- turned it off in the F4 mod options.
-		if not mod:get("record_runs") then return end
+		-- Recorder: skip if user has recording off, but the replayer still arms.
+		if mod:get("record_runs") then
+			mod.recorder.start(player, player_unit)
+		end
 
-		mod.recorder.start(player, player_unit)
+		-- Replayer: try to enter playing state if armed.
+		mod.replayer.on_local_player_spawn()
 	end)
 
 mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
@@ -64,16 +68,24 @@ mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
 				local outcome = (gm_mgr and gm_mgr._end_conditions_met_outcome)
 					or "aborted"
 				mod.recorder.stop_and_save(outcome, on_shutdown)
+				-- Replayer: also reset on mission end. If we were "playing" or
+				-- "finished", drop back to idle. Re-arming for the next mission
+				-- requires the user to /ghost load again.
+				if mod.replayer.state() ~= "idle" then
+					mod.replayer.disarm()
+				end
 				func(self, on_shutdown)
 			end)
 	end)
 
 mod.update = function(dt)
 	-- Outer pcall: any one tick subsystem throwing should not silently kill
-	-- the whole frame loop for the others. Future tasks add replayer.tick
-	-- and renderer.tick alongside; this insulates them.
+	-- the whole frame loop for the others.
 	local ok, err = pcall(mod.recorder.tick, dt)
 	if not ok then mod:warning("recorder.tick error: " .. tostring(err)) end
+
+	local ok2, err2 = pcall(mod.replayer.tick, dt)
+	if not ok2 then mod:warning("replayer.tick error: " .. tostring(err2)) end
 end
 
 -- Keybind callback for "open runs folder" in F4 settings. Must be on the
@@ -223,6 +235,13 @@ end)
 mod:command("ghost_status", "GhostRunner: print recorder/replayer status", function()
 	_say("recorder state: " .. mod.recorder.state())
 	mod.recorder._dump()
+	_say(string.format("replayer state: %s, elapsed=%.2fs/%.2fs",
+		mod.replayer.state(), mod.replayer.elapsed(), mod.replayer.duration()))
+	if mod.replayer.last_state() then
+		local s = mod.replayer.last_state()
+		_say(string.format("replayer last_state: t=%.2f p=(%.1f,%.1f,%.1f) hp=%.2f",
+			s.t, s.p[1], s.p[2], s.p[3], s.hp))
+	end
 end)
 
 -- Dev-only: fake the engine's end-conditions outcome so a subsequent

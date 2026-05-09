@@ -87,7 +87,7 @@ commands.cmd_load = function(arg)
 		pcall(function() sp:set("choose_mission_giver", m.giver or "default") end)
 	end
 
-	-- TODO Task 11: notify the replayer to arm with this ghost.
+	mod.replayer.arm_with_selected_ghost()
 
 	mod:notify(string.format("Loaded: %s D%s (%s, %s). Mission params auto-set. Hit Start in SoloPlay.",
 		m and m.name or "?",
@@ -98,7 +98,7 @@ end
 
 commands.cmd_clear = function()
 	mod._selected_ghost = nil
-	-- TODO Task 11: notify the replayer to disarm.
+	mod.replayer.disarm()
 	mod:notify("Ghost cleared.")
 end
 
