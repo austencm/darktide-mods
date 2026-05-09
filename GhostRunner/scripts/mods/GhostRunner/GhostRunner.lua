@@ -191,4 +191,38 @@ mod:command("ghost_status", "GhostRunner: print recorder/replayer status", funct
 	mod.recorder._dump()
 end)
 
+-- Dev-only: fake the engine's end-conditions outcome so a subsequent
+-- "Leave Mission" (which triggers mission_cleanup) records the chosen
+-- outcome instead of "aborted". Tests the full hook + outcome-mapping
+-- path without needing a real 10-20 minute Damnation run.
+-- Usage:
+--   /ghost_fake_outcome won   -> recorder will save as outcome="completed"
+--   /ghost_fake_outcome lost  -> recorder will save as outcome="failed"
+--   /ghost_fake_outcome <anything else>  -> "aborted" (default behaviour)
+mod:command("ghost_fake_outcome", "GhostRunner: fake mission outcome for fast testing", function(arg)
+	arg = arg and arg:match("^%s*(.-)%s*$") or ""  -- trim
+	if arg == "" then
+		_say("[fake_outcome] usage: /ghost_fake_outcome won|lost|aborted")
+		return
+	end
+	local gm_mgr = Managers.state and Managers.state.game_mode
+	if not gm_mgr then
+		_say("[fake_outcome] no game_mode manager (are you in a mission?)")
+		return
+	end
+	gm_mgr._end_conditions_met_outcome = arg
+	_say("[fake_outcome] set _end_conditions_met_outcome = " .. arg .. "; now Leave Mission to trigger save")
+end)
+
+-- Dev-only: force the recorder to finalize right now without going through
+-- the engine's mission_cleanup. Bypasses the hook entirely; tests the
+-- recorder.stop_and_save mapping in isolation.
+-- Usage: /ghost_force_save won|lost|aborted
+mod:command("ghost_force_save", "GhostRunner: force recorder.stop_and_save (bypasses hook)", function(arg)
+	arg = arg and arg:match("^%s*(.-)%s*$") or ""
+	if arg == "" then arg = "aborted" end
+	mod.recorder.stop_and_save(arg, false)
+	_say("[force_save] called stop_and_save with outcome=" .. arg)
+end)
+
 return mod
