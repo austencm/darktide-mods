@@ -270,9 +270,10 @@ recorder.stop_and_save = function(outcome, on_shutdown)
 	mod:info(string.format("recorder: saved %s (outcome=%s, %.2fs)",
 		_state.filename, mapped_outcome, _state.last_sample_t))
 
-	-- Reset for the next mission. The recorder.start guard relies on this.
+	-- Reset for the next mission. Only `name = STATE.idle` is load-bearing for
+	-- the recorder.start guard; the other fields are belt-and-suspenders since
+	-- recorder.start re-initializes everything anyway.
 	_state.name = STATE.idle
-	_state.writer = nil
 	_state.player_unit = nil
 	_state.last_sample_t = 0
 	_state.accumulator = 0

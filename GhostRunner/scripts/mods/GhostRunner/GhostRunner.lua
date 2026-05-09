@@ -44,7 +44,17 @@ mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
 	function(GameModeBase)
 		mod:hook(GameModeBase, "mission_cleanup",
 			function(func, self, on_shutdown)
-				local outcome = self._state or "aborted"
+				-- self._state on GameModeBase is the internal state machine
+				-- (`"running"`, `"done"`, etc.) -- NOT the outcome we want.
+				-- The mission outcome ("won"/"lost") is stored on the manager
+				-- as _end_conditions_met_outcome, set via _set_end_conditions_met
+				-- when evaluate_end_conditions returns a result. It persists
+				-- through mission_cleanup. Fall through to "aborted" if the
+				-- mission ended without an end-condition outcome (e.g. user
+				-- quit to hub mid-mission).
+				local gm_mgr = Managers.state and Managers.state.game_mode
+				local outcome = (gm_mgr and gm_mgr._end_conditions_met_outcome)
+					or "aborted"
 				mod.recorder.stop_and_save(outcome, on_shutdown)
 				func(self, on_shutdown)
 			end)
