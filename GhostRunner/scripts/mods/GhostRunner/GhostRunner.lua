@@ -39,7 +39,10 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 		-- Only in solo sessions.
 		if not mod.SoloPlay.is_soloplay() then return end
 
-		-- TODO Task 9: also gate on mod:get("record_runs"). For now always record.
+		-- User-controlled gate: skip recording entirely if the user has
+		-- turned it off in the F4 mod options.
+		if not mod:get("record_runs") then return end
+
 		mod.recorder.start(player, player_unit)
 	end)
 
@@ -69,6 +72,12 @@ mod.update = function(dt)
 	-- and renderer.tick alongside; this insulates them.
 	local ok, err = pcall(mod.recorder.tick, dt)
 	if not ok then mod:warning("recorder.tick error: " .. tostring(err)) end
+end
+
+-- Keybind callback for "open runs folder" in F4 settings. Must be on the
+-- mod table because DMF's keybind widget config has function_name = "open_runs_folder_keybind".
+mod.open_runs_folder_keybind = function()
+	mod.fs.open_runs_folder()
 end
 
 -- Dev-test helper: writes to the DMF CommandWindow (via global print, which DMF
