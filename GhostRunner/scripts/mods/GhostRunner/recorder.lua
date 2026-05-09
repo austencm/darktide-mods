@@ -15,7 +15,8 @@ local _state = {
 	accumulator = 0,
 	flush_accumulator = 0,
 	flush_frame_count = 0,
-	seed = nil,  -- captured at start
+	seed = nil,           -- captured at start (whatever seed the engine reported)
+	seed_pinned = false,  -- true only if Task 12 forced this seed (replay determinism)
 	metadata = nil,
 	filename = nil,
 }
@@ -121,6 +122,7 @@ recorder.start = function(player, player_unit)
 	_state.flush_accumulator = 0
 	_state.flush_frame_count = 0
 	_state.seed = mission.seed
+	_state.seed_pinned = false  -- Task 12 will set true when it forces a seed.
 	_state.metadata = meta
 	_state.filename = filename
 
@@ -183,10 +185,6 @@ local function _read_state(unit)
 	return p, y, hp, peril, w, d
 end
 
-local function _flush(writer)
-	writer:flush()
-end
-
 recorder.tick = function(dt)
 	if _state.name ~= STATE.recording then return end
 	if not Unit.alive(_state.player_unit) then
@@ -201,11 +199,15 @@ recorder.tick = function(dt)
 		_state.accumulator = _state.accumulator - SAMPLE_INTERVAL
 		_state.last_sample_t = _state.last_sample_t + SAMPLE_INTERVAL
 
-		local ok, p, y, hp, peril, w, d = pcall(_read_state, _state.player_unit)
+		-- pcall returns (true, ...results) on success, (false, errmsg) on failure.
+		-- On failure the failed sample is dropped and we exit the while loop;
+		-- the next tick will resume normally on the next sample boundary.
+		local ok, err_or_p, y, hp, peril, w, d = pcall(_read_state, _state.player_unit)
 		if not ok then
-			mod:warning("recorder: read_state failed: " .. tostring(p))
+			mod:warning("recorder: read_state failed: " .. tostring(err_or_p))
 			return
 		end
+		local p = err_or_p
 
 		_state.writer:append_frame({
 			t = _state.last_sample_t,
@@ -221,7 +223,7 @@ recorder.tick = function(dt)
 
 	if _state.flush_frame_count >= FLUSH_FRAME_THRESHOLD
 	   or _state.flush_accumulator >= FLUSH_INTERVAL then
-		_flush(_state.writer)
+		_state.writer:flush()
 		_state.flush_accumulator = 0
 		_state.flush_frame_count = 0
 	end
@@ -231,10 +233,11 @@ recorder._abandon = function(outcome)
 	if _state.name ~= STATE.recording then return end
 	if _state.writer then
 		_state.writer:finalize(outcome or "aborted",
-			_state.last_sample_t, _state.seed ~= nil, false)
+			_state.last_sample_t, _state.seed_pinned, false)
 		run_file.append_to_index(_state.filename, run_file.read(_state.filename))
 		_state.writer = nil
 	end
+	_state.player_unit = nil  -- drop the (possibly invalid) unit reference
 	_state.name = STATE.finalized
 	mod:info(string.format("recorder: abandoned (outcome=%s, %.2fs)",
 		outcome or "aborted", _state.last_sample_t))

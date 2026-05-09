@@ -41,7 +41,11 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 	end)
 
 mod.update = function(dt)
-	mod.recorder.tick(dt)
+	-- Outer pcall: any one tick subsystem throwing should not silently kill
+	-- the whole frame loop for the others. Future tasks add replayer.tick
+	-- and renderer.tick alongside; this insulates them.
+	local ok, err = pcall(mod.recorder.tick, dt)
+	if not ok then mod:warning("recorder.tick error: " .. tostring(err)) end
 end
 
 -- Dev-test helper: writes to the DMF CommandWindow (via global print, which DMF
