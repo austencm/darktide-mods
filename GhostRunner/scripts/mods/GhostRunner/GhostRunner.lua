@@ -245,15 +245,37 @@ mod:command("ghost_test_source", "GhostRunner: exercise ReplaySource and MockSou
 end)
 
 mod:command("ghost_status", "GhostRunner: print recorder/replayer status", function()
-	_say("recorder state: " .. mod.recorder.state())
-	mod.recorder._dump()
-	_say(string.format("replayer state: %s, elapsed=%.2fs/%.2fs",
-		mod.replayer.state(), mod.replayer.elapsed(), mod.replayer.duration()))
-	if mod.replayer.last_state() then
-		local s = mod.replayer.last_state()
-		_say(string.format("replayer last_state: t=%.2f p=(%.1f,%.1f,%.1f) hp=%.2f",
+	-- Wrap each access in pcall so one failure (e.g. nil replayer) doesn't
+	-- abort the whole output.
+	local rec_state = pcall(mod.recorder.state) and mod.recorder.state() or "?"
+	local rep_state = pcall(mod.replayer.state) and mod.replayer.state() or "?"
+	local rep_elapsed = pcall(mod.replayer.elapsed) and mod.replayer.elapsed() or 0
+	local rep_duration = pcall(mod.replayer.duration) and mod.replayer.duration() or 0
+	local seed_pinned = pcall(mod.replayer.is_seed_pinned) and mod.replayer.is_seed_pinned() or false
+
+	_say(string.format("Recorder: %s | Replayer: %s (%.2f/%.2fs) | seed_pinned=%s",
+		rec_state, rep_state, rep_elapsed, rep_duration, tostring(seed_pinned)))
+
+	-- Selected ghost details (set by /ghost load).
+	if mod._selected_ghost then
+		local m = mod._selected_ghost.data.metadata.mission
+		_say(string.format("  loaded ghost: %s seed=%s file=%s",
+			m and m.name or "?",
+			tostring(m and m.seed or "?"),
+			mod._selected_ghost.filename))
+	else
+		_say("  loaded ghost: <none>")
+	end
+
+	-- Replayer interpolation snapshot (only when playing).
+	local s = mod.replayer.last_state()
+	if s then
+		_say(string.format("  last_state: t=%.2f p=(%.1f,%.1f,%.1f) hp=%.2f",
 			s.t, s.p[1], s.p[2], s.p[3], s.hp))
 	end
+
+	-- Recorder dump still goes to the log file only (mod:info).
+	mod.recorder._dump()
 end)
 
 -- Dev-only: fake the engine's end-conditions outcome so a subsequent
