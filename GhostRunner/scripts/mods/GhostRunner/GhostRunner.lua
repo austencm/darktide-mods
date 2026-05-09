@@ -21,6 +21,8 @@ mod.source = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/source")
 
 mod.recorder = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/recorder")
 
+mod.commands = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/commands")
+
 mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 	function(func, self, player, player_unit, is_respawn)
 		func(self, player, player_unit, is_respawn)
@@ -87,6 +89,26 @@ local function _say(msg)
 	print(msg)
 	mod:echo(msg)
 end
+
+mod:command("ghost", "GhostRunner: ghost picker -- see /ghost help", function(arg)
+	arg = arg or ""
+	local sub, rest = arg:match("^(%S+)%s*(.*)$")
+	sub = sub or ""
+
+	if sub == "list" then
+		mod.commands.cmd_list()
+	elseif sub == "load" then
+		mod.commands.cmd_load(rest)
+	elseif sub == "clear" then
+		mod.commands.cmd_clear()
+	elseif sub == "info" then
+		mod.commands.cmd_info()
+	elseif sub == "help" or sub == "" then
+		mod:notify("Commands: /ghost list | /ghost load <n> | /ghost clear | /ghost info")
+	else
+		mod:notify("Unknown subcommand. Try /ghost help.")
+	end
+end)
 
 mod:command("ghost_test_fs", "GhostRunner: verify filesystem helpers", function()
 	local ok, err = pcall(function()
