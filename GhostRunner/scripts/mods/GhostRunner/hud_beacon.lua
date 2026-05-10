@@ -30,10 +30,6 @@ local ui_definitions = {
 					vertical_alignment        = "center",
 					text_color                = { 255, 180, 220, 255 },
 					drop_shadow               = true,
-					-- Center the text around (offset[1], offset[2]) so the
-					-- world-projected pixel is the visual center, not the
-					-- top-left of the bounding box.
-					offset                    = { -100, -20, 0 },
 				},
 			},
 		}, "ghost_beacon_area"),
@@ -57,11 +53,19 @@ HudElementGhostBeacon.set_active = function(self, active)
 	widget.visible = active
 end
 
+-- Caller passes the raw projected screen pixel (where the ghost should
+-- visually appear). The widget is 200x40 anchored top-left, and the text
+-- pass is center-aligned within it -- so to make the text's visual center
+-- land on the projection point, we subtract the widget's half-extents
+-- here. Doing the centering at widget-offset level (vs text style.offset)
+-- avoids a class of subtle misalignment when font baselines or HUD
+-- scaling differ.
+local HALF_W, HALF_H = 100, 20
 HudElementGhostBeacon.set_offset = function(self, x, y)
 	local widget = self._widgets_by_name and self._widgets_by_name.beacon_text
 	if not widget or not widget.offset then return end
-	widget.offset[1] = x or 0
-	widget.offset[2] = y or 0
+	widget.offset[1] = (x or 0) - HALF_W
+	widget.offset[2] = (y or 0) - HALF_H
 end
 
 return HudElementGhostBeacon
