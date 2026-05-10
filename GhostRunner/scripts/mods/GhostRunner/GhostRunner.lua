@@ -251,8 +251,10 @@ mod:command("ghost", "GhostRunner: ghost picker -- see /ghost help", function(..
 		mod.commands.cmd_clear()
 	elseif sub == "info" then
 		mod.commands.cmd_info()
+	elseif sub == "delete" then
+		mod.commands.cmd_delete(rest)
 	elseif sub == "help" or sub == "" then
-		mod:echo("Commands: /ghost list | /ghost load <n> | /ghost clear | /ghost info")
+		mod:echo("Commands: /ghost list | /ghost load <n> | /ghost clear | /ghost info | /ghost delete <n>")
 	else
 		mod:echo("Unknown subcommand. Try /ghost help.")
 	end

@@ -65,6 +65,17 @@ fs.list_run_files = function()
 	return files
 end
 
+-- Delete a .run file from the runs folder. Returns true if the operation
+-- was attempted (regardless of success on the OS side -- popen doesn't
+-- expose exit code reliably). Returns false if the path couldn't be built.
+fs.delete_run_file = function(filename)
+	local path = fs.runs_path(filename)
+	if not path then return false end
+	local handle = Mods.lua.io.popen(string.format('del /F "%s" 2>nul', path))
+	if handle then handle:close() end
+	return true
+end
+
 -- Open Explorer at the runs folder (used by the keybind in Task 9).
 fs.open_runs_folder = function()
 	if not fs.runs_root then return end

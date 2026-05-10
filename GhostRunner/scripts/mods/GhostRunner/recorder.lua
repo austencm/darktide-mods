@@ -57,9 +57,15 @@ local function _read_mission_metadata()
 	local is_solo = sp and sp.is_soloplay and sp.is_soloplay()
 
 	if is_solo then
+		-- Mechanism_data has resistance populated in solo too (SoloPlay's
+		-- gen_normal_mission_context writes it). Use it as the canonical
+		-- source for resistance regardless of branch.
+		local mechanism = Managers.mechanism and Managers.mechanism:current_mechanism()
+		local md = mechanism and mechanism:mechanism_data() or {}
 		return {
 			name = sp:get("choose_mission") or "unknown",
 			difficulty = sp:get("choose_difficulty"),
+			resistance = md.resistance,
 			circumstance = sp:get("choose_circumstance"),
 			side = sp:get("choose_side_mission"),
 			giver = sp:get("choose_mission_giver"),
@@ -80,6 +86,7 @@ local function _read_mission_metadata()
 	return {
 		name = md.mission_name or "unknown",
 		difficulty = md.challenge,
+		resistance = md.resistance,
 		circumstance = md.circumstance_name or "default",
 		side = md.side_mission or "default",
 		giver = md.mission_giver_vo_override or "default",

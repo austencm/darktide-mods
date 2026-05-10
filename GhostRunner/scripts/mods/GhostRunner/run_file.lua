@@ -142,6 +142,7 @@ local function _index_entry_from_run(filename, data)
 		file = filename,
 		mission = data.metadata.mission and data.metadata.mission.name or "unknown",
 		difficulty = data.metadata.mission and data.metadata.mission.difficulty,
+		resistance = data.metadata.mission and data.metadata.mission.resistance,
 		class = data.metadata.class,
 		duration = data.footer and data.footer.duration or 0,
 		outcome = data.footer and data.footer.outcome or "partial",
