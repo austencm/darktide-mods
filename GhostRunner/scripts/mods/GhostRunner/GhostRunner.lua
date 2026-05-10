@@ -81,11 +81,7 @@ mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
 mod:register_hud_element({
 	class_name = "HudElementGhostBeacon",
 	filename = "GhostRunner/scripts/mods/GhostRunner/hud_beacon",
-	-- false: we position by raw screen pixel coords (Camera.world_to_screen
-	-- returns pixels, not HUD-logical units). With true, the scaling factor
-	-- gets applied and the widget drifts proportionally to its distance
-	-- from origin -- visible as the text orbiting opposite the reticle.
-	use_hud_scale = false,
+	use_hud_scale = true,
 	visibility_groups = { "alive" },
 	validation_function = function()
 		-- Don't render in hub.
@@ -153,8 +149,15 @@ mod.update = function(dt)
 			return
 		end
 
+		-- Convert raw screen pixels to HUD-logical coords before passing to
+		-- the widget. With use_hud_scale=true the scenegraph expects logical
+		-- units, so without this multiplication the widget drifts
+		-- proportionally to its distance from origin (= the orbit-around-
+		-- ghost-position bug). This matches what the engine's vanilla
+		-- HudElementWorldMarkers does at hud_element_world_markers.lua:438.
+		local inverse_scale = RESOLUTION_LOOKUP and RESOLUTION_LOOKUP.inverse_scale or 1
 		element:set_active(true)
-		element:set_offset(screen_pos.x, screen_pos.y)
+		element:set_offset(screen_pos.x * inverse_scale, screen_pos.y * inverse_scale)
 	end)
 	if not ok3 then mod:warning("hud_beacon update error: " .. tostring(err3)) end
 end
