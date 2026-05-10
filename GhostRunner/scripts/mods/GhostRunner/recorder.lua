@@ -303,6 +303,8 @@ recorder.stop_and_save = function(outcome, on_shutdown)
 
 	mod:info(string.format("recorder: saved %s (outcome=%s, %.2fs)",
 		_state.filename, mapped_outcome, _state.last_sample_t))
+	mod:notify(string.format("Run saved: %s (%.0fs)",
+		mapped_outcome, _state.last_sample_t))
 
 	_reset_to_idle()
 end
