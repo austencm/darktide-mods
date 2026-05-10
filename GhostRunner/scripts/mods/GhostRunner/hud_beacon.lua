@@ -49,7 +49,9 @@ local ui_definitions = {
 					offset                    = { 0, 0, 1 },
 				},
 			},
-			-- HP bar background
+			-- HP bar background. Pushed further below center to leave clear
+			-- space under the name text (which extends below the top of the
+			-- widget by the font's baseline + descender).
 			{
 				pass_type = "rect",
 				style_id  = "hp_bg",
@@ -58,7 +60,7 @@ local ui_definitions = {
 					vertical_alignment   = "center",
 					size                 = { BAR_WIDTH, BAR_HEIGHT },
 					color                = BG_COLOR,
-					offset               = { 0, 5, 1 },
+					offset               = { 0, 14, 1 },
 				},
 			},
 			-- HP bar fill
@@ -70,14 +72,7 @@ local ui_definitions = {
 					vertical_alignment   = "center",
 					size                 = { BAR_WIDTH, BAR_HEIGHT },
 					color                = HP_COLOR,
-					-- Anchor the fill to the LEFT edge of the bar background.
-					-- The bg uses center alignment, so its left edge is at
-					-- widget_center_x - BAR_WIDTH/2 = -70 from widget center.
-					-- Our widget alignment for this pass is "left" so its
-					-- origin is widget_left = widget_center_x - 100. Difference
-					-- between widget_left and bar's left edge is +30. So
-					-- offset.x = 30 places the fill aligned with the bar bg.
-					offset               = { 30, 5, 2 },
+					offset               = { 30, 14, 2 },
 				},
 			},
 			-- Peril bar background
@@ -89,7 +84,7 @@ local ui_definitions = {
 					vertical_alignment   = "center",
 					size                 = { BAR_WIDTH, BAR_HEIGHT },
 					color                = BG_COLOR,
-					offset               = { 0, 14, 1 },
+					offset               = { 0, 23, 1 },
 				},
 			},
 			-- Peril bar fill
@@ -101,7 +96,7 @@ local ui_definitions = {
 					vertical_alignment   = "center",
 					size                 = { BAR_WIDTH, BAR_HEIGHT },
 					color                = PERIL_COLOR,
-					offset               = { 30, 14, 2 },
+					offset               = { 30, 23, 2 },
 				},
 			},
 		}, "ghost_beacon_area"),
