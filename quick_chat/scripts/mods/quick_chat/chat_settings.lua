@@ -25,23 +25,8 @@
     See quick_chat_colors.lua for the full palette.
 ]]
 
-local mod = get_mod("quick_chat")
-local icons = mod:io_dofile("quick_chat/scripts/mods/quick_chat/quick_chat_icons")
-mod._icons = icons
-local colors = mod:io_dofile("quick_chat/scripts/mods/quick_chat/quick_chat_colors")
-mod._colors = colors
-local color = mod.wrap_color
-
 -- The following settings are just examples. Feel free to remove or edit them.
 return {
-    {
-        id = "psyker_explode_self",
-        title = "Psyker explode (self)",
-        message = {
-            "It has been [red]0[/] days without a brain incident.",
-            "MY HEAD",
-        }
-    },
     {
         id = "alert_daemonhost",
         title = "Daemonhost",
@@ -55,6 +40,11 @@ return {
         }
     },
     {
+        id = "alert_need_help",
+        title = "Need Help",
+        message = "I need help!"
+    },
+    {
         id = "alert_stay_together",
         title = "Stay Together",
         message = "Close up! Stay together!"
@@ -65,14 +55,19 @@ return {
         message = "gg"
     },
     {
-        id = "greeting_good_game_psyker",
-        title = "Good Game (psyker)",
-        message = "gg :psyker_simple:"
-    },
-    {
         id = "greeting_player_joined",
         title = "Greeting",
         message = "Hi [name]"
+    },
+    {
+        id = "response_yes",
+        title = "Yes",
+        message = "Yes",
+    },
+    {
+        id = "response_no",
+        title = "No",
+        message = "No"
     },
     {
         id = "response_sorry",
@@ -82,7 +77,7 @@ return {
     {
         id = "deploy_med_self",
         title = "Deploy Med (self)",
-        message = ":star: Medi-pack deployed!"
+        message = ":check_badge: Medi-pack deployed!"
     },
     {
         id = "deploy_med_others",
@@ -98,10 +93,5 @@ return {
         id = "deploy_ammo_others",
         title = "Deploy Ammo (others)",
         message = "[name] deployed an ammo crate"
-    },
-    {
-        id = "psyker_explode_count",
-        title = "Psyker Explode Count",
-        message = "This psyker's head has exploded " .. icons.digit_1 .. "" .. icons.digit_9 .. " times."
     },
 }

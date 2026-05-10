@@ -1,6 +1,24 @@
 local mod = get_mod("quick_chat")
 
-mod._messages = mod:io_dofile("quick_chat/scripts/mods/quick_chat/chat_settings")
+-- Prefer chat_settings.local.lua (gitignored override) when present, else the tracked file.
+-- We peek with Mods.lua.io.open because mod:io_dofile loudly notifies on missing files.
+local function _load_chat_settings()
+    local base = "quick_chat/scripts/mods/quick_chat/"
+    local _io = Mods and Mods.lua and Mods.lua.io
+    if _io and _io.open then
+        local f = _io.open("./../mods/" .. base .. "chat_settings.local.lua", "r")
+        if f then
+            f:close()
+            local result = mod:io_dofile(base .. "chat_settings.local")
+            if result then
+                return result
+            end
+        end
+    end
+    return mod:io_dofile(base .. "chat_settings")
+end
+
+mod._messages = _load_chat_settings()
 mod._cooldown = {
     hotkey = 5,
     cinematic = 0,
