@@ -42,7 +42,7 @@ end
 -- Append a frame. Caller is responsible for flush cadence.
 function Writer:append_frame(frame)
 	if self._closed then return end
-	-- frame is { t, p (Vector3 or {x,y,z}), y, hp, peril, w, d }
+	-- frame is { t, p (Vector3 or {x,y,z}), y, hp, peril, w, d, prog }
 	local row = {
 		type = "f",
 		t = frame.t,
@@ -52,6 +52,7 @@ function Writer:append_frame(frame)
 		peril = frame.peril,
 		w = frame.w,
 		d = frame.d,
+		prog = frame.prog,
 	}
 	self._handle:write(cjson.encode(row) .. "\n")
 end

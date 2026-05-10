@@ -192,7 +192,29 @@ local function _read_state(unit)
 		end
 	end
 
-	return p, y, hp, peril, w, d
+	-- Path progress (0..1 fraction along the mission's main path).
+	-- Returns nil if main_path_manager isn't ready (early in mission load).
+	local prog = nil
+	local main_path = Managers.state and Managers.state.main_path
+	if main_path then
+		-- Try furthest_travel_percentage with the standard "Heroes" side.
+		-- If that fails, fall back to travel_distance_from_position.
+		local ok, val = pcall(main_path.furthest_travel_percentage, main_path, "Heroes")
+		if ok and val then
+			prog = val
+		else
+			-- Fallback: distance-from-position. We can't compute a percentage
+			-- without total path length, but we can still record the absolute
+			-- distance and compute % at compare time if needed.
+			local pos = Unit.world_position(unit, 1)
+			local ok2, dist = pcall(main_path.travel_distance_from_position, main_path, pos)
+			if ok2 and dist then
+				prog = dist  -- absolute distance fallback; recipient should detect via sentinel value > 1
+			end
+		end
+	end
+
+	return p, y, hp, peril, w, d, prog
 end
 
 recorder.tick = function(dt)
@@ -212,7 +234,7 @@ recorder.tick = function(dt)
 		-- pcall returns (true, ...results) on success, (false, errmsg) on failure.
 		-- On failure the failed sample is dropped and we exit the while loop;
 		-- the next tick will resume normally on the next sample boundary.
-		local ok, err_or_p, y, hp, peril, w, d = pcall(_read_state, _state.player_unit)
+		local ok, err_or_p, y, hp, peril, w, d, prog = pcall(_read_state, _state.player_unit)
 		if not ok then
 			mod:warning("recorder: read_state failed: " .. tostring(err_or_p))
 			return
@@ -227,6 +249,7 @@ recorder.tick = function(dt)
 			peril = peril,
 			w = w,
 			d = d,
+			prog = prog,
 		})
 		_state.flush_frame_count = _state.flush_frame_count + 1
 	end

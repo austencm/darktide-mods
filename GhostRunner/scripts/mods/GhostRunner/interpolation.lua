@@ -56,6 +56,7 @@ interpolation.frame_at = function(frames, idx, elapsed)
 		peril = interpolation.lerp(a.peril, b.peril, alpha),
 		w = a.w,            -- step function
 		d = a.d,            -- step function
+		prog = (a.prog and b.prog) and interpolation.lerp(a.prog, b.prog, alpha) or a.prog,
 	}
 	return interp, idx, false
 end

@@ -197,8 +197,24 @@ mod.update = function(dt)
 		timer:set_active(true)
 		if timer.set_state then
 			local ghost_t = mod.replayer.elapsed() or 0
-			local live_t = mod.recorder.elapsed() or 0
-			timer:set_state({ ghost_t = ghost_t, delta = live_t - ghost_t })
+
+			-- Live progress: query MainPathManager directly each tick.
+			local live_prog = nil
+			local main_path = Managers.state and Managers.state.main_path
+			if main_path then
+				local ok_p, val = pcall(main_path.furthest_travel_percentage, main_path, "Heroes")
+				if ok_p then live_prog = val end
+			end
+
+			-- Ghost progress: from the interpolated last_state (recorded prog field).
+			local last = mod.replayer.last_state()
+			local ghost_prog = last and last.prog
+
+			timer:set_state({
+				ghost_t = ghost_t,
+				live_prog = live_prog,
+				ghost_prog = ghost_prog,
+			})
 		end
 	end)
 	if not ok4 then mod:warning("hud_timer update error: " .. tostring(err4)) end
