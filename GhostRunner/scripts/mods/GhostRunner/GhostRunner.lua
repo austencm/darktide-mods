@@ -91,6 +91,18 @@ mod:register_hud_element({
 	end,
 })
 
+mod:register_hud_element({
+	class_name = "HudElementGhostTimer",
+	filename = "GhostRunner/scripts/mods/GhostRunner/hud_timer",
+	use_hud_scale = true,
+	visibility_groups = { "alive" },
+	validation_function = function()
+		local game_mode_manager = Managers.state and Managers.state.game_mode
+		local game_mode_name = game_mode_manager and game_mode_manager:game_mode_name()
+		return game_mode_name ~= "hub"
+	end,
+})
+
 mod.update = function(dt)
 	-- Outer pcall: any one tick subsystem throwing should not silently kill
 	-- the whole frame loop for the others.
@@ -168,6 +180,28 @@ mod.update = function(dt)
 		end
 	end)
 	if not ok3 then mod:warning("hud_beacon update error: " .. tostring(err3)) end
+
+	local ok4, err4 = pcall(function()
+		local ui_manager = Managers.ui
+		local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
+		if not hud then return end
+		local timer = hud:element("HudElementGhostTimer")
+		if not timer or not timer.set_active then return end
+
+		local show = mod:get("show_race_timer") and mod.replayer.state() == "playing"
+		if not show then
+			timer:set_active(false)
+			return
+		end
+
+		timer:set_active(true)
+		if timer.set_state then
+			local ghost_t = mod.replayer.elapsed() or 0
+			local live_t = mod.recorder.elapsed() or 0
+			timer:set_state({ ghost_t = ghost_t, delta = live_t - ghost_t })
+		end
+	end)
+	if not ok4 then mod:warning("hud_timer update error: " .. tostring(err4)) end
 end
 
 -- Keybind callback for "open runs folder" in F4 settings. Must be on the
