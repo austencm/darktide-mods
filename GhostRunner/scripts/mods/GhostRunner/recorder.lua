@@ -193,25 +193,13 @@ local function _read_state(unit)
 	end
 
 	-- Path progress (0..1 fraction along the mission's main path).
+	-- side_id is a number (1 = heroes side), per server_metrics_manager.lua:127.
 	-- Returns nil if main_path_manager isn't ready (early in mission load).
 	local prog = nil
 	local main_path = Managers.state and Managers.state.main_path
 	if main_path then
-		-- Try furthest_travel_percentage with the standard "Heroes" side.
-		-- If that fails, fall back to travel_distance_from_position.
-		local ok, val = pcall(main_path.furthest_travel_percentage, main_path, "Heroes")
-		if ok and val then
-			prog = val
-		else
-			-- Fallback: distance-from-position. We can't compute a percentage
-			-- without total path length, but we can still record the absolute
-			-- distance and compute % at compare time if needed.
-			local pos = Unit.world_position(unit, 1)
-			local ok2, dist = pcall(main_path.travel_distance_from_position, main_path, pos)
-			if ok2 and dist then
-				prog = dist  -- absolute distance fallback; recipient should detect via sentinel value > 1
-			end
-		end
+		local ok, val = pcall(main_path.furthest_travel_percentage, main_path, 1)
+		if ok and val then prog = val end
 	end
 
 	return p, y, hp, peril, w, d, prog

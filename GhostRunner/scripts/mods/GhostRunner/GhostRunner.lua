@@ -199,10 +199,12 @@ mod.update = function(dt)
 			local ghost_t = mod.replayer.elapsed() or 0
 
 			-- Live progress: query MainPathManager directly each tick.
+			-- side_id is a number (1 = heroes side), not a string -- per
+			-- server_metrics_manager.lua:127 which is the canonical caller.
 			local live_prog = nil
 			local main_path = Managers.state and Managers.state.main_path
 			if main_path then
-				local ok_p, val = pcall(main_path.furthest_travel_percentage, main_path, "Heroes")
+				local ok_p, val = pcall(main_path.furthest_travel_percentage, main_path, 1)
 				if ok_p then live_prog = val end
 			end
 
