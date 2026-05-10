@@ -25,6 +25,7 @@ mod._cooldown = {
     join = 0,
     tag_book = 15,
     tag_crate = 15,
+    tag_daemonhost = 30,
     deploy_med = 3,
     deploy_ammo = 3,
 }
@@ -40,6 +41,7 @@ mod._events = {
     --"tagged_medical_crate_deployable",
     "tagged_ammo_cache_pocketable",
     "tagged_ammo_cache_deployable",
+    "tagged_daemonhost",
     "deployed_medical_crate_deployable_self",
     "deployed_medical_crate_deployable_others",
     "deployed_ammo_cache_deployable_self",
@@ -241,6 +243,13 @@ local loc = {
              "クールダウン：" .. mod._cooldown.tag_crate .. "秒",
         ["zh-cn"] = "在你标记已部署的弹药箱时触发。\n" ..
              "冷却：" .. mod._cooldown.tag_crate .. " 秒",
+    },
+    auto_tagged_daemonhost = {
+        en = "Tagged Daemonhost",
+    },
+    auto_tagged_daemonhost_desc = {
+        en = "Triggered when you tagged a Daemonhost.\n" ..
+             "Cooldown: " .. mod._cooldown.tag_daemonhost .. "s",
     },
     auto_deployed_medical_crate_deployable_self = {
         en = "Deployed Medical Crates (You)",

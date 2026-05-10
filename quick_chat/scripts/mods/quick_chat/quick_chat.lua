@@ -421,13 +421,7 @@ mod:hook_safe("HudElementSmartTagging", "_add_smart_tag_presentation", function(
     local target_unit = tag_instance:target_unit()
     local target_type = target_unit and Unit.get_data(target_unit, "smart_tag_target_type")
 
-    -- mod:echo('hello')
-
     mod.debug.echo_kv("target_type", target_type)
-
-    if target_type ~= "pickup" then
-        return
-    end
 
     local parent = self._parent
     local player = parent:player()
@@ -438,26 +432,38 @@ mod:hook_safe("HudElementSmartTagging", "_add_smart_tag_presentation", function(
         return
     end
 
-    local pickup_name = Unit.get_data(target_unit, "pickup_type")
-    local event_id = "auto_tagged_" .. pickup_name
-    local message_type = nil
+    if target_type == "pickup" then
+        local pickup_name = Unit.get_data(target_unit, "pickup_type")
+        local event_id = "auto_tagged_" .. pickup_name
+        local message_type = nil
 
-    if pickup_name == "tome" or
-       pickup_name == "grimoire" then
-        message_type = "tag_book"
-    elseif
-       pickup_name == "medical_crate_pocketable" or
-       pickup_name == "medical_crate_deployable" or
-       pickup_name == "ammo_cache_pocketable" or
-       pickup_name == "ammo_cache_deployable" then
-        message_type = "tag_crate"
-    end
+        if pickup_name == "tome" or
+           pickup_name == "grimoire" then
+            message_type = "tag_book"
+        elseif
+           pickup_name == "medical_crate_pocketable" or
+           pickup_name == "medical_crate_deployable" or
+           pickup_name == "ammo_cache_pocketable" or
+           pickup_name == "ammo_cache_deployable" then
+            message_type = "tag_crate"
+        end
 
-    mod.debug.echo_kv("pickup_name", pickup_name)
-    mod.debug.echo_kv("message_type", message_type)
+        mod.debug.echo_kv("pickup_name", pickup_name)
+        mod.debug.echo_kv("message_type", message_type)
 
-    if message_type then
-        send_message_on_event(event_id, message_type)
+        if message_type then
+            send_message_on_event(event_id, message_type)
+        end
+    elseif target_type == "breed" then
+        local unit_data_ext = ScriptUnit.has_extension(target_unit, "unit_data_system")
+        local breed = unit_data_ext and unit_data_ext:breed()
+        local breed_name = breed and breed.name
+
+        mod.debug.echo_kv("breed_name", breed_name)
+
+        if breed_name == "chaos_daemonhost" then
+            send_message_on_event("auto_tagged_daemonhost", "tag_daemonhost")
+        end
     end
 end)
 
