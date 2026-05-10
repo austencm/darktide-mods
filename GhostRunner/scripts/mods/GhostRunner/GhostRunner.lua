@@ -158,6 +158,14 @@ mod.update = function(dt)
 		local inverse_scale = RESOLUTION_LOOKUP and RESOLUTION_LOOKUP.inverse_scale or 1
 		element:set_active(true)
 		element:set_offset(screen_pos.x * inverse_scale, screen_pos.y * inverse_scale)
+		-- Keep the nameplate in sync with the loaded ghost.
+		if element.set_name and mod._selected_ghost then
+			local pname = mod._selected_ghost.data.metadata.player
+			if pname then element:set_name(pname) end
+		end
+		if element.set_state then
+			element:set_state(s)
+		end
 	end)
 	if not ok3 then mod:warning("hud_beacon update error: " .. tostring(err3)) end
 end
