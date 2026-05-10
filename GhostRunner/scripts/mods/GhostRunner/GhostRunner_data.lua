@@ -22,6 +22,13 @@ return {
 						title = "record_runs",
 						tooltip = "record_runs_tooltip",
 					},
+					{
+						setting_id = "record_online_missions",
+						type = "checkbox",
+						default_value = false,
+						title = "record_online_missions",
+						tooltip = "record_online_missions_tooltip",
+					},
 				},
 			},
 			{

@@ -48,18 +48,42 @@ local function _filename_from_iso(iso)
 	return iso .. ".run"
 end
 
--- Read current SoloPlay mission params for the metadata block.
+-- Read current mission params for the metadata block. In solo, SoloPlay's
+-- settings are the canonical source (the user just set them). In MP, the
+-- engine's mechanism_data has the real mission; SoloPlay's settings are
+-- stale UI state. We branch on is_soloplay().
 local function _read_mission_metadata()
 	local sp = mod.SoloPlay
-	-- TODO during implementation: verify these are the exact keys; cross-ref
-	-- SoloPlay.lua gen_normal_mission_context for the canonical names.
+	local is_solo = sp and sp.is_soloplay and sp.is_soloplay()
+
+	if is_solo then
+		return {
+			name = sp:get("choose_mission") or "unknown",
+			difficulty = sp:get("choose_difficulty"),
+			circumstance = sp:get("choose_circumstance"),
+			side = sp:get("choose_side_mission"),
+			giver = sp:get("choose_mission_giver"),
+			havoc = nil,
+			seed = nil,   -- filled in by caller after reading from game state
+		}
+	end
+
+	-- MP path: read from the mechanism's mechanism_data.
+	-- Field names verified against SoloPlay.lua gen_normal_mission_context:
+	--   mission_name, challenge, resistance, circumstance_name,
+	--   side_mission, mission_giver_vo_override, havoc_data.
+	local mechanism = Managers.mechanism and Managers.mechanism:current_mechanism()
+	local md = mechanism and mechanism:mechanism_data() or {}
+
+	-- Normalise to our schema. Defensive fallbacks for when the mechanism
+	-- layer isn't yet ready or fields differ.
 	return {
-		name = sp:get("choose_mission") or "unknown",
-		difficulty = sp:get("choose_difficulty"),
-		circumstance = sp:get("choose_circumstance"),
-		side = sp:get("choose_side_mission"),
-		giver = sp:get("choose_mission_giver"),
-		havoc = nil,  -- TODO: capture havoc fields if we're in havoc mode
+		name = md.mission_name or "unknown",
+		difficulty = md.challenge,
+		circumstance = md.circumstance_name or "default",
+		side = md.side_mission or "default",
+		giver = md.mission_giver_vo_override or "default",
+		havoc = md.havoc_data,
 		seed = nil,   -- filled in by caller after reading from game state
 	}
 end

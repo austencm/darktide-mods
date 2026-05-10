@@ -40,16 +40,21 @@ mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
 			return
 		end
 
-		-- Only in solo sessions.
-		if not mod.SoloPlay.is_soloplay() then return end
+		local is_solo = mod.SoloPlay.is_soloplay()
 
-		-- Recorder: skip if user has recording off, but the replayer still arms.
+		-- Recorder gate: solo always allowed (with record_runs setting); online
+		-- only if the user opts in via record_online_missions.
 		if mod:get("record_runs") then
-			mod.recorder.start(player, player_unit)
+			if is_solo or mod:get("record_online_missions") then
+				mod.recorder.start(player, player_unit)
+			end
 		end
 
-		-- Replayer: try to enter playing state if armed.
-		mod.replayer.on_local_player_spawn()
+		-- Replayer: solo only. MP missions can't honour mission auto-set or
+		-- seed pinning, and the gameplay isn't authoritative on the client.
+		if is_solo then
+			mod.replayer.on_local_player_spawn()
+		end
 	end)
 
 mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",

@@ -32,6 +32,16 @@ return {
 		en = "When ON, every solo mission is recorded to a .run file in your AppData folder.",
 	},
 
+	record_online_missions = {
+		en = "Record online missions",
+	},
+	record_online_missions_tooltip = {
+		en = "When ON, runs in regular online (Fatshark-server) missions are recorded too. " ..
+			"Default OFF: only SoloPlay solo missions record. " ..
+			"Online recordings can be loaded as ghosts in solo replay later. " ..
+			"This is recording only -- replay still requires solo.",
+	},
+
 	replay_mode = {
 		en = "Replay mode",
 	},
