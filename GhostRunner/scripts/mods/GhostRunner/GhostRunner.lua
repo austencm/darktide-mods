@@ -81,7 +81,11 @@ mod:hook_require("scripts/managers/game_mode/game_modes/game_mode_base",
 mod:register_hud_element({
 	class_name = "HudElementGhostBeacon",
 	filename = "GhostRunner/scripts/mods/GhostRunner/hud_beacon",
-	use_hud_scale = true,
+	-- false: we position by raw screen pixel coords (Camera.world_to_screen
+	-- returns pixels, not HUD-logical units). With true, the scaling factor
+	-- gets applied and the widget drifts proportionally to its distance
+	-- from origin -- visible as the text orbiting opposite the reticle.
+	use_hud_scale = false,
 	visibility_groups = { "alive" },
 	validation_function = function()
 		-- Don't render in hub.
