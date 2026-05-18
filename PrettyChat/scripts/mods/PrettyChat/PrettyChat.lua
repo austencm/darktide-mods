@@ -122,3 +122,83 @@ end
 
 mod:hook("ConstantElementChat", "_handle_active_chat_input", _wrap_typed_chat)
 mod:hook("ConstantElementChat", "_handle_console_input", _wrap_typed_chat)
+
+-- ##################################################
+-- Live preview HUD
+-- ##################################################
+--
+-- Renders a single text row above the chat input showing the
+-- fully-substituted preview of what's typed. Style and positioning live in
+-- HudElementChatPreview.lua; this section computes the preview text and
+-- pushes it via the registered HUD element.
+
+local function _build_preview_text(raw_text)
+    local default_color_tag = _build_default_color_tag()
+    if not raw_text or #raw_text == 0 then
+        if default_color_tag ~= "" then
+            return default_color_tag .. "(preview){#reset()}"
+        end
+        return "(preview)"
+    end
+    local text = mod._substitute_icons(raw_text)
+    text = mod._substitute_colors(text,
+        default_color_tag ~= "" and default_color_tag or "{#reset()}")
+    if default_color_tag ~= "" then
+        text = default_color_tag .. text .. "{#reset()}"
+    end
+    return text
+end
+
+-- DMF auto-cleanup only fires on UIHud:destroy, so on a Ctrl+Shift+R hot
+-- reload the previous injection is still in _player_hud._elements.
+-- Re-registering hits "element_already_exists" once per frame — which
+-- floods the console buffer and triggers the engine's 16s deadlock
+-- watchdog. Clear manually first.
+local dmf = get_mod("DMF")
+if dmf and dmf.remove_injected_hud_elements then
+    pcall(dmf.remove_injected_hud_elements, mod)
+end
+
+mod:register_hud_element({
+    class_name = "HudElementChatPreview",
+    filename = "PrettyChat/scripts/mods/PrettyChat/HudElementChatPreview",
+    use_hud_scale = false,
+    visibility_groups = { "alive", "dead" },
+})
+
+-- Capture the chat element ref on each per-frame _handle_input call (not
+-- on init — chat is constructed during game boot before this mod's hooks
+-- register, so an init hook would never fire).
+mod._chat_element_ref = nil
+mod:hook_safe("ConstantElementChat", "_handle_input", function(self)
+    mod._chat_element_ref = self
+end)
+
+mod.update = function(dt)
+    local chat_element = mod._chat_element_ref
+    if not chat_element then return end
+
+    local ui_manager = Managers.ui
+    local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
+    if not hud then return end
+    local hud_element = hud:element("HudElementChatPreview")
+    if not hud_element or not hud_element.set_active then return end
+
+    local input_widget = chat_element._input_field_widget
+    local is_writing = input_widget
+        and input_widget.content
+        and input_widget.content.is_writing
+    if not is_writing then
+        hud_element:set_active(false)
+        return
+    end
+
+    local raw_text = input_widget.content.input_text
+    if not raw_text or #raw_text == 0 then
+        hud_element:set_active(false)
+        return
+    end
+
+    hud_element:set_text(_build_preview_text(raw_text))
+    hud_element:set_active(true)
+end
