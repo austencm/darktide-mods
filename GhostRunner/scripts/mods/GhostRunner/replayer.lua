@@ -142,6 +142,15 @@ replayer.arm_with_selected_ghost = function()
 	mod:info(string.format("replayer: armed with %s (%.1fs)",
 		mod._selected_ghost.filename, _state.source:duration()))
 
+	-- Push class identity into the HUD beacon (rendered as a PUA glyph).
+	local ui_manager = Managers.ui
+	local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
+	local beacon = hud and hud:element("HudElementGhostBeacon")
+	if beacon and beacon.set_class and mod._selected_ghost then
+		local class = mod._selected_ghost.data.metadata.class
+		beacon:set_class(class)
+	end
+
 	local m = _state.source:metadata().mission
 	replayer.try_pin_seed(m and m.seed)
 

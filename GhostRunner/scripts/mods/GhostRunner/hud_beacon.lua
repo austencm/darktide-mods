@@ -1,6 +1,29 @@
 local UIWorkspaceSettings = require("scripts/settings/ui/ui_workspace_settings")
 local UIWidget = require("scripts/managers/ui/ui_widget")
 
+-- Codepoint -> UTF-8 byte string. Bitsquid Lua's `\u{XXXX}` escape support
+-- is uncertain, so encode by hand at mod load time.
+local function cp(n)
+    if n < 0x80 then return string.char(n) end
+    if n < 0x800 then
+        return string.char(0xC0 + math.floor(n / 0x40),
+                           0x80 + (n % 0x40))
+    end
+    return string.char(0xE0 + math.floor(n / 0x1000),
+                       0x80 + math.floor(n / 0x40) % 0x40,
+                       0x80 + (n % 0x40))
+end
+
+-- PUA codepoints for class glyphs (detailed variants).
+-- From scripts/settings/ui/ui_settings.lua lines 508-555 (per project memory).
+local CLASS_GLYPHS = {
+    veteran = cp(0xE01A),
+    zealot  = cp(0xE01B),
+    psyker  = cp(0xE01C),
+    ogryn   = cp(0xE01D),
+    adamant = cp(0xE050),
+}
+
 local NAME_FONT_SIZE = 18
 local BAR_WIDTH = 140
 local BAR_HEIGHT = 6
@@ -31,6 +54,25 @@ local ui_definitions = {
 	},
 	widget_definitions = {
 		beacon = UIWidget.create_definition({
+			-- Class icon (top, left of name). The glyph is in the Darktide PUA range;
+			-- proxima_nova_bold's font-fallback chain resolves it via darktide_custom_regular.
+			{
+				pass_type = "text",
+				style_id  = "class_icon",
+				value_id  = "class_icon",
+				value     = "",  -- set via set_class()
+				style     = {
+					font_size                 = 22,
+					font_type                 = "proxima_nova_bold",
+					text_horizontal_alignment = "center",
+					text_vertical_alignment   = "center",
+					horizontal_alignment      = "center",
+					vertical_alignment        = "top",
+					text_color                = { 255, 255, 255, 255 },
+					drop_shadow               = true,
+					offset                    = { -50, 0, 1 },  -- centered then nudged left
+				},
+			},
 			-- Name (top of widget)
 			{
 				pass_type = "text",
@@ -164,6 +206,18 @@ HudElementGhostBeacon.set_name = function(self, name)
 	if not widget then return end
 	if widget.content and widget.content.name ~= nil then
 		widget.content.name = tostring(name or "Ghost")
+		widget.dirty = true
+	end
+end
+
+-- Update the class icon. Called once when the ghost is loaded; not per-frame.
+-- Unknown class -> empty string (icon hidden).
+HudElementGhostBeacon.set_class = function(self, class_name)
+	local widget = self._widgets_by_name and self._widgets_by_name.beacon
+	if not widget then return end
+	local glyph = CLASS_GLYPHS[class_name] or ""
+	if widget.content and widget.content.class_icon ~= nil then
+		widget.content.class_icon = glyph
 		widget.dirty = true
 	end
 end
