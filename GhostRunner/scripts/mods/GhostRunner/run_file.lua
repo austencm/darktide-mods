@@ -1,7 +1,15 @@
 local mod = get_mod("GhostRunner")
 local fs = mod.fs
 
-local SCHEMA_VERSION = 1
+local SCHEMA_VERSION = 2
+
+-- Round numeric values to N decimals via format+tonumber round-trip.
+-- The tonumber strips trailing zeros: 0.50000 -> 0.5, 12.534823 -> 12.53.
+-- Stays within JSON-valid output; lets cjson.encode use minimal representation.
+local function round_to(n, decimals)
+    if type(n) ~= "number" then return n end
+    return tonumber(string.format("%." .. decimals .. "f", n))
+end
 
 local run_file = {}
 
@@ -31,6 +39,7 @@ run_file.create_writer = function(filename, metadata)
 		schema = SCHEMA_VERSION,
 		player = metadata.player,
 		class = metadata.class,
+		wmax = metadata.wmax,   -- NEW: max wounds for the recorded player
 		mission = metadata.mission,
 		recorded_at = metadata.recorded_at,
 	}
@@ -42,17 +51,20 @@ end
 -- Append a frame. Caller is responsible for flush cadence.
 function Writer:append_frame(frame)
 	if self._closed then return end
-	-- frame is { t, p (Vector3 or {x,y,z}), y, hp, peril, w, d, prog }
+	-- Schema 2 frame format: no `type` discriminator (loader infers from
+	-- the absence of `schema` and `outcome`). Abbreviated keys. Numeric
+	-- rounding via round_to() so cjson emits minimal representation.
+	local p = frame.p
 	local row = {
-		type = "f",
-		t = frame.t,
-		p = frame.p,
-		y = frame.y,
-		hp = frame.hp,
-		peril = frame.peril,
-		w = frame.w,
-		d = frame.d,
-		prog = frame.prog,
+		t  = round_to(frame.t, 3),
+		p  = p and { round_to(p[1], 2), round_to(p[2], 2), round_to(p[3], 2) } or nil,
+		y  = round_to(frame.y, 3),
+		hp = round_to(frame.hp, 3),
+		to = round_to(frame.to, 3),
+		ab = round_to(frame.ab, 3),
+		w  = frame.w,
+		st = frame.st,
+		pg = round_to(frame.pg, 4),
 	}
 	self._handle:write(cjson.encode(row) .. "\n")
 end

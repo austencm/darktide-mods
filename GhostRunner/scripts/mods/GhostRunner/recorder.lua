@@ -122,6 +122,16 @@ local function _read_local_player_name_and_class()
 	return name, class
 end
 
+local function _read_max_wounds(player_unit)
+	-- Read once at recorder start. Used in the wound-segmented HP bar.
+	local hp_ext = ScriptUnit.has_extension(player_unit, "health_system")
+	if hp_ext and hp_ext.max_wounds then
+		local ok, val = pcall(hp_ext.max_wounds, hp_ext)
+		if ok and val then return val end
+	end
+	return nil  -- absent metadata is acceptable; renderer falls back to un-segmented bar
+end
+
 recorder.start = function(player, player_unit)
 	-- Contract: stop_and_save (Task 8) must reset _state.name to idle on
 	-- finalize, otherwise back-to-back missions silently skip recording.
@@ -137,10 +147,12 @@ recorder.start = function(player, player_unit)
 	mission.seed = _read_level_seed()
 
 	local player_name, class = _read_local_player_name_and_class()
+	local wmax = _read_max_wounds(player_unit)
 
 	local meta = {
 		player = player_name,
 		class = class,
+		wmax = wmax,
 		mission = mission,
 		recorded_at = iso,
 	}
@@ -172,68 +184,69 @@ recorder.start = function(player, player_unit)
 end
 
 local function _read_state(unit)
-	-- Position
+	-- Position (foot/root).
 	local pos = Unit.world_position(unit, 1)
 	local p = { Vector3.to_elements(pos) }
 
-	-- Yaw (Quaternion -> yaw)
+	-- Yaw.
 	local rot = Unit.local_rotation(unit, 1)
 	local y = Quaternion.yaw(rot)
 
-	-- HP
+	-- HP fraction.
 	local hp = 0
 	local hp_ext = ScriptUnit.has_extension(unit, "health_system")
-	if hp_ext then
-		-- Try common API surfaces; verified during smoke test.
-		if hp_ext.current_health_percent then
-			hp = hp_ext:current_health_percent()
-		elseif hp_ext.current_health and hp_ext.max_health then
-			local cur = hp_ext:current_health()
-			local mx = hp_ext:max_health()
-			hp = mx > 0 and (cur / mx) or 0
+	if hp_ext and hp_ext.current_health_percent then
+		hp = hp_ext:current_health_percent() or 0
+	end
+
+	-- Toughness fraction.
+	local to = 0
+	local toughness_ext = ScriptUnit.has_extension(unit, "toughness_system")
+	if toughness_ext and toughness_ext.current_toughness_percent then
+		to = toughness_ext:current_toughness_percent() or 0
+	end
+
+	-- Combat-ability cooldown progress (1.0 = ready, 0.0 = just used / on cooldown).
+	-- Mirrors hud_element_player_ability.lua formula: 1 - remaining/max,
+	-- with a quirk: when 0 (just finished), bump to 1.
+	local ab = 0
+	local ability_ext = ScriptUnit.has_extension(unit, "ability_system")
+	if ability_ext and ability_ext.ability_is_equipped
+	   and ability_ext:ability_is_equipped("combat_ability") then
+		local rem = ability_ext:remaining_ability_cooldown("combat_ability")
+		local max = ability_ext:max_ability_cooldown("combat_ability")
+		if max and max > 0 then
+			ab = 1 - (rem / max)
+			if ab == 0 then ab = 1 end
+		else
+			ab = 1
 		end
 	end
 
-	-- Peril (warp_charge component)
-	local peril = 0
-	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
-	if unit_data then
-		local wc = unit_data:read_component("warp_charge")
-		if wc and wc.current_percentage then
-			peril = wc.current_percentage
-		end
-	end
-
-	-- Wounds
+	-- Wounds remaining (kept for parity with vanilla; segmentation visual
+	-- only uses hp + max_wounds, but `w` is useful for status/debug).
 	local w = 0
 	if hp_ext and hp_ext.num_wounds then
-		w = hp_ext:num_wounds()
-	elseif unit_data then
-		local hc = unit_data:read_component("health")
-		w = (hc and hc.current_wounds) or 0
+		w = hp_ext:num_wounds() or 0
 	end
 
-	-- Downed/dead
-	local d = false
+	-- CSM state name (replaces v0's boolean `d`).
+	local st = "walking"
 	local csm = ScriptUnit.has_extension(unit, "character_state_machine_system")
 	if csm and csm.current_state then
-		local cs = csm:current_state()
-		if cs == "knocked_down" or cs == "dead" or cs == "hogtied" or cs == "consumed" then
-			d = true
-		end
+		local ok, val = pcall(csm.current_state, csm)
+		if ok and val then st = val end
 	end
 
-	-- Path progress (0..1 fraction along the mission's main path).
-	-- side_id is a number (1 = heroes side), per server_metrics_manager.lua:127.
-	-- Returns nil if main_path_manager isn't ready (early in mission load).
-	local prog = nil
+	-- Main-path progress (unchanged from v0).
+	local pg = nil
 	local main_path = Managers.state and Managers.state.main_path
 	if main_path then
-		local ok, val = pcall(main_path.furthest_travel_percentage, main_path, 1)
-		if ok and val then prog = val end
+		local ok_p, val = pcall(main_path.furthest_travel_percentage, main_path, 1)
+		if ok_p and val then pg = val end
 	end
 
-	return p, y, hp, peril, w, d, prog
+	return p, y, hp, to, ab, w, st, pg
 end
 
 recorder.tick = function(dt)
@@ -253,7 +266,7 @@ recorder.tick = function(dt)
 		-- pcall returns (true, ...results) on success, (false, errmsg) on failure.
 		-- On failure the failed sample is dropped and we exit the while loop;
 		-- the next tick will resume normally on the next sample boundary.
-		local ok, err_or_p, y, hp, peril, w, d, prog = pcall(_read_state, _state.player_unit)
+		local ok, err_or_p, y, hp, to, ab, w, st, pg = pcall(_read_state, _state.player_unit)
 		if not ok then
 			mod:warning("recorder: read_state failed: " .. tostring(err_or_p))
 			return
@@ -265,10 +278,11 @@ recorder.tick = function(dt)
 			p = p,
 			y = y,
 			hp = hp,
-			peril = peril,
+			to = to,
+			ab = ab,
 			w = w,
-			d = d,
-			prog = prog,
+			st = st,
+			pg = pg,
 		})
 		_state.flush_frame_count = _state.flush_frame_count + 1
 	end
