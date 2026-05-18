@@ -97,6 +97,24 @@ function Writer:abandon()
 	self._closed = true
 end
 
+-- Translate a schema-1 frame to schema-2 in-place fields. Old recordings
+-- have explicit `type:"f"`, `d` (bool), `peril`, and `prog`. New code
+-- expects `st` (string), no peril, `pg` instead of `prog`.
+local function _translate_schema1_frame(f)
+    if f.d ~= nil then
+        f.st = f.d and "knocked_down" or "walking"
+        f.d = nil
+    end
+    if f.prog ~= nil then
+        f.pg = f.prog
+        f.prog = nil
+    end
+    -- peril simply dropped on read; nothing renders it anymore
+    f.peril = nil
+    -- to and ab left absent — renderer hides those bars for schema-1 ghosts
+    return f
+end
+
 -- Read a complete .run file. Returns {metadata, frames, footer, partial} or nil + error.
 run_file.read = function(filename)
 	local path = fs.runs_path(filename)
@@ -115,12 +133,16 @@ run_file.read = function(filename)
 		if line and #line > 0 then
 			local ok, obj = pcall(cjson.decode, line)
 			if ok and type(obj) == "table" then
-				if obj.type == "meta" then
+				-- Schema-2 line-type inference: meta has `schema`, footer has
+				-- `outcome`, anything else is a frame. The explicit `type` field
+				-- is kept on meta+footer for forward compat & file debugging
+				-- but no longer required on frames (Tier 2 byte savings).
+				if obj.schema or obj.type == "meta" then
 					meta = obj
-				elseif obj.type == "f" then
-					frames[#frames + 1] = obj
-				elseif obj.type == "end" then
+				elseif obj.outcome or obj.type == "end" then
 					footer = obj
+				else
+					frames[#frames + 1] = obj
 				end
 			end
 		end
@@ -134,6 +156,13 @@ run_file.read = function(filename)
 
 	if meta.schema and meta.schema > SCHEMA_VERSION then
 		return nil, string.format("unsupported schema version %d in %s", meta.schema, filename)
+	end
+
+	-- Translate schema-1 frames forward. Schema 2 frames pass through.
+	if meta and meta.schema == 1 then
+		for i = 1, #frames do
+			_translate_schema1_frame(frames[i])
+		end
 	end
 
 	-- Sort frames by t ascending (defensive -- JSONL is naturally ordered).

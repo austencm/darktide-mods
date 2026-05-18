@@ -292,4 +292,43 @@ mod:command("ghost_status", "GhostRunner: print recorder/replayer status", funct
 	mod.recorder._dump()
 end)
 
+-- TEMP (removed in Task 10 cleanup): verify schema-1 frame translation.
+mod:command("ghost_test_translate", "GhostRunner dev: schema-1 frame translation test", function()
+	-- Synthesize a schema-1-looking frame in memory.
+	local frame1_old = {
+		type = "f", t = 1.5, p = {1, 2, 3}, y = 0.5,
+		hp = 0.8, peril = 0.3, w = 3, d = true, prog = 0.1,
+	}
+	-- Round-trip through cjson to match what comes off disk.
+	local round = cjson.decode(cjson.encode(frame1_old))
+	-- Apply the read-side path by calling run_file.read on a synthesized file...
+	-- Actually simpler: directly invoke the (now internal) translator if exported.
+	-- Since _translate_schema1_frame is file-local, just verify by reading a
+	-- real schema-1 ghost file from the user's runs/ directory.
+	local index = mod.run_file.read_index()
+	local schema1_filename = nil
+	for _, entry in ipairs(index.runs or {}) do
+		local r = mod.run_file.read(entry.file)
+		if r and r.metadata.schema == 1 then
+			schema1_filename = entry.file
+			break
+		end
+	end
+	if not schema1_filename then
+		mod:echo("No schema-1 ghost in runs/. Test inconclusive — manually verify with a fresh recording (will be schema 2).")
+		return
+	end
+	local data = mod.run_file.read(schema1_filename)
+	if not data then
+		mod:echo("Schema-1 file failed to parse: " .. tostring(schema1_filename))
+		return
+	end
+	local f1 = data.frames[1]
+	mod:echo(string.format("Schema-1 loaded: %s | first frame: t=%.2f hp=%.2f st=%s pg=%s d=%s peril=%s",
+		schema1_filename, f1.t or 0, f1.hp or 0,
+		tostring(f1.st), tostring(f1.pg),
+		tostring(f1.d), tostring(f1.peril)))
+	mod:echo("Expected: st=walking or knocked_down (translated from d); d=nil; peril=nil")
+end)
+
 return mod
