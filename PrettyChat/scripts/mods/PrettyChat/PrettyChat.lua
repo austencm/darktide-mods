@@ -248,3 +248,30 @@ end
 
 mod.trigger_cycle_chat_color = function() _cycle_color(1) end
 mod.trigger_cycle_chat_color_backward = function() _cycle_color(-1) end
+
+-- ##################################################
+-- Soft integration with quick_chat
+-- ##################################################
+--
+-- If quick_chat is installed, wrap its preset-message rendering to
+-- post-process markup tokens. Capture-and-replace because
+-- _replace_place_holder is a field on the mod instance, not a class method
+-- — mod:hook by class name doesn't apply.
+
+mod.on_all_mods_loaded = function()
+    local qc = get_mod("quick_chat")
+    if not qc or not qc._replace_place_holder then
+        return
+    end
+    if qc._pretty_chat_patched then
+        return  -- idempotent across DMF reloads
+    end
+    local original = qc._replace_place_holder
+    qc._replace_place_holder = function(message, character_name, color)
+        message = original(message, character_name, color)
+        message = mod._substitute_icons(message)
+        message = mod._substitute_colors(message, "{#reset()}")
+        return message
+    end
+    qc._pretty_chat_patched = true
+end
