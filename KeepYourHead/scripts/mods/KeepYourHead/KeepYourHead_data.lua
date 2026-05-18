@@ -26,6 +26,11 @@ return {
 						default_value = true,
 					},
 					{
+						setting_id    = "block_laspistol_push",
+						type          = "checkbox",
+						default_value = true,
+					},
+					{
 						setting_id    = "block_force_staff_fire",
 						type          = "checkbox",
 						default_value = true,

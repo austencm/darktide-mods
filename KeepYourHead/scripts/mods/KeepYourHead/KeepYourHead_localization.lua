@@ -3,7 +3,7 @@ return {
 		en = "Keep Your Head",
 	},
 	mod_description = {
-		en = "Blocks inputs that would increase peril when peril is ≥ a threshold (default 99.8). Includes blitzes, staffs, and force sword ignite and push-attack.",
+		en = "Blocks inputs that would increase peril when peril is ≥ a threshold (default 99.8). Includes blitzes, staffs, force sword ignite and push-attack, and laspistol psychic push.",
 	},
 
 	group_blocking = {
@@ -47,6 +47,12 @@ return {
 	},
 	block_force_sword_description = {
 		en = "Block peril-generating inputs on force swords at or above the threshold. Covers ignite/charge and push attacks. Basic pushes, light melee, and heavy melee always work.",
+	},
+	block_laspistol_push = {
+		en = "Block Laspistol Push",
+	},
+	block_laspistol_push_description = {
+		en = "Block laspistol special (V) at or above the threshold. A Psyker wielding either laspistol gets the psychic push variant, which costs peril.",
 	},
 	block_force_staff_fire = {
 		en = "Block Staff",
