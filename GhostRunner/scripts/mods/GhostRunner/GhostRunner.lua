@@ -173,8 +173,8 @@ mod.update = function(dt)
 		-- Same offset used by world_renderer for the top of the pole, so the
 		-- nameplate sits exactly atop the pole.
 		local head_offset = mod.world_renderer
-		    and mod.world_renderer.head_offset_for_state(s.st)
-		    or 1.8
+			and mod.world_renderer.head_offset_for_state(s.st)
+			or 1.8
 		local world_pos = Vector3(s.p[1], s.p[2], s.p[3] + head_offset)
 		if Camera.inside_frustum(camera, world_pos) <= 0 then
 			element:set_active(false)
