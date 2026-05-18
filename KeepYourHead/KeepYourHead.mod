@@ -1,11 +1,11 @@
 return {
 	run = function()
-		fassert(rawget(_G, "new_mod"), "`WitchLeash` encountered an error loading the Darktide Mod Framework.")
+		fassert(rawget(_G, "new_mod"), "`KeepYourHead` encountered an error loading the Darktide Mod Framework.")
 
-		new_mod("WitchLeash", {
-			mod_script       = "WitchLeash/scripts/mods/WitchLeash/WitchLeash",
-			mod_data         = "WitchLeash/scripts/mods/WitchLeash/WitchLeash_data",
-			mod_localization = "WitchLeash/scripts/mods/WitchLeash/WitchLeash_localization",
+		new_mod("KeepYourHead", {
+			mod_script       = "KeepYourHead/scripts/mods/KeepYourHead/KeepYourHead",
+			mod_data         = "KeepYourHead/scripts/mods/KeepYourHead/KeepYourHead_data",
+			mod_localization = "KeepYourHead/scripts/mods/KeepYourHead/KeepYourHead_localization",
 		})
 	end,
 	packages = {},

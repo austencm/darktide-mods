@@ -1,6 +1,6 @@
 return {
 	mod_name = {
-		en = "Witch Leash",
+		en = "Keep Your Head",
 	},
 	mod_description = {
 		en = "Blocks inputs that would increase peril when peril is ≥ a threshold (default 99.8). Includes blitzes, staffs, and force sword ignite and push-attack.",

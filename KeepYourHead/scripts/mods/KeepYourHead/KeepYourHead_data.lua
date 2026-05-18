@@ -1,4 +1,4 @@
-local mod = get_mod("WitchLeash")
+local mod = get_mod("KeepYourHead")
 
 return {
 	name = mod:localize("mod_name"),

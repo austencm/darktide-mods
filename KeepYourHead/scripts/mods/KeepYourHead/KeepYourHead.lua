@@ -1,4 +1,4 @@
-local mod = get_mod("WitchLeash")
+local mod = get_mod("KeepYourHead")
 
 -- Single client-side input gate. The mod hooks ONLY InputService — every other
 -- piece of state (peril, wielded weapon, equipped abilities) is read lazily
@@ -19,11 +19,11 @@ local type_of     = type
 -- standard sandbox-safe path. The output lands in
 --   %USERPROFILE%\AppData\Roaming\Fatshark\Darktide\console_logs\
 -- in a per-session file named `console-<timestamp>-<guid>.log` — open the
--- newest file and search for "WitchLeash". pcall guards in case `print` is
+-- newest file and search for "KeepYourHead". pcall guards in case `print` is
 -- missing in some configurations.
 local function debug_log(line)
 	mod:echo(line)
-	pcall(print, "[WitchLeash] " .. line)
+	pcall(print, "[KeepYourHead] " .. line)
 end
 
 local PERIL_FREE_ABILITIES = {
@@ -350,7 +350,7 @@ local function should_block(action_name)
 			if settings.debug_dump and action_name == "action_one_pressed" then
 				local remaining = get_vent_cooldown_remaining()
 				debug_log(string.format(
-					"[WitchLeash] force-staff-fire weapon=%s allow=%s inferno=%s vent_match=%s combat=%s cooldown=%s duration=%s peril=%.3f",
+					"[KeepYourHead] force-staff-fire weapon=%s allow=%s inferno=%s vent_match=%s combat=%s cooldown=%s duration=%s peril=%.3f",
 					weapon_name,
 					tostring(settings.allow_inferno_fire_with_vent == true),
 					tostring(is_inferno_staff(weapon_name) == true),
@@ -455,7 +455,7 @@ local function maybe_dump_debug(action_name, pressed)
 	local peril, weapon_name, combat_ability, grenade_ability = read_local_psyker_state()
 	if not peril then return end
 	debug_log(string.format(
-		"[WitchLeash] action=%s peril=%.3f weapon=%s combat=%s grenade=%s",
+		"[KeepYourHead] action=%s peril=%.3f weapon=%s combat=%s grenade=%s",
 		action_name,
 		peril,
 		weapon_name ~= "" and weapon_name or "<none>",
@@ -524,8 +524,8 @@ mod:hook("InputService", "_get", input_hook)
 mod:hook("InputService", "_get_simulate", input_hook)
 
 mod:register_hud_element({
-	class_name = "HudElementWitchLeashWarning",
-	filename = "WitchLeash/scripts/mods/WitchLeash/HudElementWitchLeashWarning",
+	class_name = "HudElementKeepYourHeadWarning",
+	filename = "KeepYourHead/scripts/mods/KeepYourHead/HudElementKeepYourHeadWarning",
 	use_hud_scale = true,
 	visibility_groups = {
 		"alive",
@@ -545,7 +545,7 @@ mod.update = function(dt)
 	local ui_manager = Managers.ui
 	local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
 	if not hud then return end
-	local element = hud:element("HudElementWitchLeashWarning")
+	local element = hud:element("HudElementKeepYourHeadWarning")
 	if not element or not element.set_active then return end
 	element:set_active(mod.is_warning_active())
 	if element.set_offset then
