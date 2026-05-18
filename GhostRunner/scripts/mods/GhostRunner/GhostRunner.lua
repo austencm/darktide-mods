@@ -23,6 +23,8 @@ mod.recorder = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/recorder")
 
 mod.commands = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/commands")
 
+mod.world_renderer = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/world_renderer")
+
 mod.replayer = mod:io_dofile("GhostRunner/scripts/mods/GhostRunner/replayer")
 
 mod:hook(CLASS.GameModeManager, "on_player_unit_spawn",
@@ -123,6 +125,21 @@ mod.update = function(dt)
 		-- accidentally selects text in the dev console.
 		mod.replayer.disarm()
 	end
+
+	-- World renderer (trail + pole). No-op if not playing.
+	local okwr, errwr = pcall(function()
+		if mod.replayer.state() ~= "playing" then return end
+		local source = mod.replayer.source and mod.replayer.source()
+		-- We need access to the source's internal frames + idx for trail
+		-- walk-back. Expose minimal accessors instead of grabbing internals.
+		local frames = mod.replayer.frames and mod.replayer.frames()
+		local idx = mod.replayer.idx and mod.replayer.idx()
+		local last = mod.replayer.last_state()
+		if not frames or not idx or not last then return end
+		local trail_duration = 4.0   -- TODO: read from settings in Task 9
+		mod.world_renderer.tick(frames, idx, last, trail_duration)
+	end)
+	if not okwr then mod:warning("world_renderer.tick error: " .. tostring(errwr)) end
 
 	local ok3, err3 = pcall(function()
 		local ui_manager = Managers.ui

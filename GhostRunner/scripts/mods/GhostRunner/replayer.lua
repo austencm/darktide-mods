@@ -17,6 +17,15 @@ local _seed_pin_path = nil       -- "game_parameters" | "session_seed_hook" | ni
 
 replayer.state = function() return _state.name end
 replayer.last_state = function() return _state.last_state end
+
+replayer.frames = function()
+	return _state.source and _state.source._frames or nil
+end
+
+replayer.idx = function()
+	return _state.source and _state.source._idx or nil
+end
+
 replayer.elapsed = function()
 	return _state.source and _state.source:elapsed() or 0
 end
@@ -136,6 +145,12 @@ replayer.arm_with_selected_ghost = function()
 	local m = _state.source:metadata().mission
 	replayer.try_pin_seed(m and m.seed)
 
+	-- Spin up the in-world renderer (trail + pole). Falls back gracefully
+	-- if level_world isn't yet available (the per-frame tick retries).
+	if mod.world_renderer then
+		mod.world_renderer.create()
+	end
+
 	return true
 end
 
@@ -144,6 +159,9 @@ replayer.disarm = function()
 	_state.source = nil
 	_state.last_state = nil
 	replayer.unpin_seed()
+	if mod.world_renderer then
+		mod.world_renderer.destroy()
+	end
 end
 
 -- Called from on_player_unit_spawn after the recorder is started.
