@@ -129,9 +129,8 @@ mod.update = function(dt)
 	-- World renderer (trail + pole). No-op if not playing.
 	local okwr, errwr = pcall(function()
 		if mod.replayer.state() ~= "playing" then return end
-		local source = mod.replayer.source and mod.replayer.source()
-		-- We need access to the source's internal frames + idx for trail
-		-- walk-back. Expose minimal accessors instead of grabbing internals.
+		-- Trail walk-back needs the loaded frames + interpolator's current idx.
+		-- Replayer exposes minimal accessors so we don't reach into source internals.
 		local frames = mod.replayer.frames and mod.replayer.frames()
 		local idx = mod.replayer.idx and mod.replayer.idx()
 		local last = mod.replayer.last_state()
