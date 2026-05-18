@@ -6,7 +6,7 @@ local BASE_FONT_SIZE = 32
 local ui_definitions = {
 	scenegraph_definition = {
 		screen = UIWorkspaceSettings.screen,
-		witch_leash_warning_area = {
+		keep_your_head_warning_area = {
 			parent             = "screen",
 			vertical_alignment = "center",
 			horizontal_alignment = "center",
@@ -34,14 +34,14 @@ local ui_definitions = {
 					drop_shadow               = true,
 				},
 			},
-		}, "witch_leash_warning_area"),
+		}, "keep_your_head_warning_area"),
 	},
 }
 
-local HudElementWitchLeashWarning = class("HudElementWitchLeashWarning", "HudElementBase")
+local HudElementKeepYourHeadWarning = class("HudElementKeepYourHeadWarning", "HudElementBase")
 
-HudElementWitchLeashWarning.init = function(self, parent, draw_layer, start_scale)
-	HudElementWitchLeashWarning.super.init(self, parent, draw_layer, start_scale, ui_definitions)
+HudElementKeepYourHeadWarning.init = function(self, parent, draw_layer, start_scale)
+	HudElementKeepYourHeadWarning.super.init(self, parent, draw_layer, start_scale, ui_definitions)
 	-- Start hidden; main script's poller will flip this on when peril
 	-- crosses the threshold. Ensure the offset table exists so set_offset
 	-- can mutate it.
@@ -52,20 +52,20 @@ HudElementWitchLeashWarning.init = function(self, parent, draw_layer, start_scal
 	end
 end
 
-HudElementWitchLeashWarning.set_active = function(self, active)
+HudElementKeepYourHeadWarning.set_active = function(self, active)
 	local widget = self._widgets_by_name and self._widgets_by_name.warning_text
 	if not widget then return end
 	widget.visible = active
 end
 
-HudElementWitchLeashWarning.set_offset = function(self, x, y)
+HudElementKeepYourHeadWarning.set_offset = function(self, x, y)
 	local widget = self._widgets_by_name and self._widgets_by_name.warning_text
 	if not widget or not widget.offset then return end
 	widget.offset[1] = x or 0
 	widget.offset[2] = y or 0
 end
 
-HudElementWitchLeashWarning.set_scale = function(self, scale)
+HudElementKeepYourHeadWarning.set_scale = function(self, scale)
 	local widget = self._widgets_by_name and self._widgets_by_name.warning_text
 	if not widget or not widget.style or not widget.style.text then return end
 	widget.style.text.font_size = BASE_FONT_SIZE * (scale or 1)
@@ -75,4 +75,4 @@ HudElementWitchLeashWarning.set_scale = function(self, scale)
 	widget.dirty = true
 end
 
-return HudElementWitchLeashWarning
+return HudElementKeepYourHeadWarning
