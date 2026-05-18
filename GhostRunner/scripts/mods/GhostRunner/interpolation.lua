@@ -49,14 +49,15 @@ interpolation.frame_at = function(frames, idx, elapsed)
 	local span = b.t - a.t
 	local alpha = span > 0 and (elapsed - a.t) / span or 0
 	local interp = {
-		t = elapsed,
-		p = interpolation.lerp_v3(a.p, b.p, alpha),
-		y = interpolation.lerp_yaw(a.y, b.y, alpha),
-		hp = interpolation.lerp(a.hp, b.hp, alpha),
-		peril = interpolation.lerp(a.peril, b.peril, alpha),
-		w = a.w,            -- step function
-		d = a.d,            -- step function
-		prog = (a.prog and b.prog) and interpolation.lerp(a.prog, b.prog, alpha) or a.prog,
+		t  = elapsed,
+		p  = interpolation.lerp_v3(a.p, b.p, alpha),
+		y  = interpolation.lerp_yaw(a.y, b.y, alpha),
+		hp = interpolation.lerp(a.hp or 0, b.hp or 0, alpha),
+		to = interpolation.lerp(a.to or 0, b.to or 0, alpha),
+		ab = interpolation.lerp(a.ab or 0, b.ab or 0, alpha),
+		w  = a.w,                                  -- step function (rarely changes)
+		st = a.st or "walking",                    -- step function (replaces v0 `d`)
+		pg = (a.pg and b.pg) and interpolation.lerp(a.pg, b.pg, alpha) or a.pg,
 	}
 	return interp, idx, false
 end

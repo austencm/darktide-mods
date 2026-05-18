@@ -331,4 +331,23 @@ mod:command("ghost_test_translate", "GhostRunner dev: schema-1 frame translation
 	mod:echo("Expected: st=walking or knocked_down (translated from d); d=nil; peril=nil")
 end)
 
+-- TEMP (removed in Task 10 cleanup): verify interpolator handles schema-2 fields.
+mod:command("ghost_test_interp", "GhostRunner dev: interpolation test", function()
+	local frames = {
+		{ t = 0.0, p = {0,0,0}, y = 0,   hp = 1.0, to = 1.0, ab = 1.0, w = 3, st = "walking",     pg = 0.0 },
+		{ t = 1.0, p = {1,0,0}, y = 0.5, hp = 0.8, to = 0.5, ab = 0.5, w = 3, st = "sprinting",   pg = 0.1 },
+		{ t = 2.0, p = {2,0,0}, y = 1.0, hp = 0.4, to = 0.0, ab = 0.0, w = 2, st = "knocked_down",pg = 0.2 },
+	}
+	-- Sample at t=0.5 (between frame 1 and 2):
+	local s, idx, fin = mod.interpolation.frame_at(frames, 1, 0.5)
+	mod:echo(string.format("@t=0.5: p=(%.2f,%.2f,%.2f) hp=%.2f to=%.2f ab=%.2f st=%s pg=%.2f",
+		s.p[1], s.p[2], s.p[3], s.hp, s.to, s.ab, tostring(s.st), s.pg))
+	mod:echo("Expected: p=(0.5,0,0) hp=0.9 to=0.75 ab=0.75 st=walking pg=0.05")
+	-- Sample at t=1.5 (between frame 2 and 3):
+	local s2 = mod.interpolation.frame_at(frames, 2, 1.5)
+	mod:echo(string.format("@t=1.5: hp=%.2f to=%.2f ab=%.2f st=%s",
+		s2.hp, s2.to, s2.ab, tostring(s2.st)))
+	mod:echo("Expected: hp=0.6 to=0.25 ab=0.25 st=sprinting")
+end)
+
 return mod
