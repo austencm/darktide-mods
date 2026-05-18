@@ -11,4 +11,12 @@ return {
     cycle_chat_color_hotkey_desc = { en = "Cycles through none → all palette colors alphabetically." },
     cycle_chat_color_backward_hotkey = { en = "Cycle default chat color (backward)" },
     cycle_chat_color_backward_hotkey_desc = { en = "Cycles backwards through the same order." },
+    debug = { en = "Debug" },
+    probe_icons_hotkey = { en = "Probe PUA range (echo U+E000..U+E1FF)" },
+    probe_icons_hotkey_desc = { en = "Echoes the Private Use Area codepoints to local chat"
+        .. " so you can visually identify which ones render as glyphs." },
+    list_icons_hotkey = { en = "List named icons" },
+    list_icons_hotkey_desc = { en = "Echoes every named icon from icons.lua with section headers and its glyph." },
+    list_colors_hotkey = { en = "List named colors" },
+    list_colors_hotkey_desc = { en = "Echoes every named color with a wrapped sample so you can preview the palette." },
 }
