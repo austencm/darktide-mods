@@ -56,3 +56,69 @@ mod.wrap_color = function(text, color)
     return string.format("{#color(%d,%d,%d)}%s{#reset()}",
         color[2], color[3], color[4], text)
 end
+
+-- ##################################################
+-- Typed-chat wrapper
+-- ##################################################
+--
+-- The chat element strips {#…} tags from typed text before sending
+-- (constant_element_chat.lua, gsub of "{#.-}"), so we can't pre-inject
+-- markup into the input field. Instead we wrap
+-- Managers.chat.send_channel_message for the duration of the input
+-- handler and substitute at the manager boundary.
+
+local function _build_default_color_tag()
+    local color_name = mod:get("default_chat_color")
+    if not color_name or color_name == "none" or not mod._colors then
+        return ""
+    end
+    local rgba = mod._colors[color_name]
+    if not rgba then
+        return ""
+    end
+    return string.format("{#color(%d,%d,%d)}", rgba[2], rgba[3], rgba[4])
+end
+
+local function _wrap_typed_chat(func, self, ...)
+    local default_color_tag = _build_default_color_tag()
+    local check_mode = mod:get("enable_check_mode")
+
+    -- Psykhanium / Meat Grinder: no Vivox session, so
+    -- ConstantElementChat._handle_active_chat_input gates Enter on
+    --   can_send_message = self._selected_channel_handle and #input_text > 0
+    -- When check mode is on we don't actually need a real channel — inject
+    -- a sentinel for the duration of the handler so the engine attempts the
+    -- send; our manager-level wrap intercepts with mod:echo.
+    local restored_handle = false
+    if check_mode and not self._selected_channel_handle then
+        self._selected_channel_handle = "PrettyChat_check_mode"
+        restored_handle = true
+    end
+
+    local chat_mgr = Managers.chat
+    local orig = chat_mgr.send_channel_message
+    chat_mgr.send_channel_message = function(mgr, handle, text, ...)
+        text = mod._substitute_icons(text)
+        text = mod._substitute_colors(text,
+            default_color_tag ~= "" and default_color_tag or "{#reset()}")
+        if default_color_tag ~= "" then
+            text = default_color_tag .. text .. "{#reset()}"
+        end
+        if check_mode then
+            mod:echo(text)
+            return
+        end
+        return orig(mgr, handle, text, ...)
+    end
+    local ok, err = pcall(func, self, ...)
+    chat_mgr.send_channel_message = orig
+    if restored_handle then
+        self._selected_channel_handle = nil
+    end
+    if not ok then
+        error(err)
+    end
+end
+
+mod:hook("ConstantElementChat", "_handle_active_chat_input", _wrap_typed_chat)
+mod:hook("ConstantElementChat", "_handle_console_input", _wrap_typed_chat)
