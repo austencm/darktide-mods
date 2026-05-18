@@ -346,8 +346,9 @@ local function should_block(action_name)
 	local settings = mod.settings
 	local base = settings.peril_threshold
 
-	if settings.block_force_sword and BLOCKED_INPUTS_WEAPON_EXTRA[action_name] then
-		return peril >= base
+	if BLOCKED_INPUTS_WEAPON_EXTRA[action_name] then
+		if settings.block_force_sword   and is_force_sword(weapon_name)   then return peril >= base end
+		if settings.block_laspistol_push and is_laspistol(weapon_name)    then return peril >= base end
 	end
 
 	-- LMB cases: force-staff fire OR an ability-as-weapon being cast (Brain
