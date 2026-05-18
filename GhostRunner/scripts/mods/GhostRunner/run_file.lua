@@ -97,22 +97,21 @@ function Writer:abandon()
 	self._closed = true
 end
 
--- Translate a schema-1 frame to schema-2 in-place fields. Old recordings
+-- Translate a schema-1 frame to schema-2 fields in place. Old recordings
 -- have explicit `type:"f"`, `d` (bool), `peril`, and `prog`. New code
 -- expects `st` (string), no peril, `pg` instead of `prog`.
 local function _translate_schema1_frame(f)
-    if f.d ~= nil then
-        f.st = f.d and "knocked_down" or "walking"
-        f.d = nil
-    end
-    if f.prog ~= nil then
-        f.pg = f.prog
-        f.prog = nil
-    end
-    -- peril simply dropped on read; nothing renders it anymore
-    f.peril = nil
-    -- to and ab left absent — renderer hides those bars for schema-1 ghosts
-    return f
+	if f.d ~= nil then
+		f.st = f.d and "knocked_down" or "walking"
+		f.d = nil
+	end
+	if f.prog ~= nil then
+		f.pg = f.prog
+		f.prog = nil
+	end
+	-- peril simply dropped on read; nothing renders it anymore
+	f.peril = nil
+	-- to and ab left absent — renderer hides those bars for schema-1 ghosts
 end
 
 -- Read a complete .run file. Returns {metadata, frames, footer, partial} or nil + error.
@@ -159,7 +158,7 @@ run_file.read = function(filename)
 	end
 
 	-- Translate schema-1 frames forward. Schema 2 frames pass through.
-	if meta and meta.schema == 1 then
+	if meta.schema == 1 then
 		for i = 1, #frames do
 			_translate_schema1_frame(frames[i])
 		end
