@@ -202,3 +202,48 @@ mod.update = function(dt)
     hud_element:set_text(_build_preview_text(raw_text))
     hud_element:set_active(true)
 end
+
+-- ##################################################
+-- Color cycle hotkey
+-- ##################################################
+--
+-- Cycles default_chat_color through "none" + every key in mod._colors
+-- (alphabetical). The preview line reflects the new value next frame.
+
+mod._color_cycle = nil
+
+local function _build_color_cycle()
+    local order = { "none" }
+    if mod._colors then
+        local names = {}
+        for name, _ in pairs(mod._colors) do
+            names[#names + 1] = name
+        end
+        table.sort(names)
+        for _, name in ipairs(names) do
+            order[#order + 1] = name
+        end
+    end
+    return order
+end
+
+local function _cycle_color(direction)
+    if not mod._color_cycle then
+        mod._color_cycle = _build_color_cycle()
+    end
+    local cycle = mod._color_cycle
+    local current = mod:get("default_chat_color") or "none"
+    local idx = 1
+    for i, name in ipairs(cycle) do
+        if name == current then
+            idx = i
+            break
+        end
+    end
+    -- ((idx - 1 + direction) mod N) + 1 wraps cleanly in both directions.
+    local next_idx = ((idx - 1 + direction) % #cycle) + 1
+    mod:set("default_chat_color", cycle[next_idx])
+end
+
+mod.trigger_cycle_chat_color = function() _cycle_color(1) end
+mod.trigger_cycle_chat_color_backward = function() _cycle_color(-1) end

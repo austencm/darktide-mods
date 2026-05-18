@@ -7,4 +7,8 @@ return {
     default_chat_color = { en = "Default chat color" },
     default_chat_color_desc = { en = "If set, all of your typed messages get wrapped in this color"
         .. " unless overridden by an inline [color]…[/] tag." },
+    cycle_chat_color_hotkey = { en = "Cycle default chat color (forward)" },
+    cycle_chat_color_hotkey_desc = { en = "Cycles through none → all palette colors alphabetically." },
+    cycle_chat_color_backward_hotkey = { en = "Cycle default chat color (backward)" },
+    cycle_chat_color_backward_hotkey_desc = { en = "Cycles backwards through the same order." },
 }
