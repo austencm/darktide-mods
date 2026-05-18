@@ -213,9 +213,9 @@ mod.update = function(dt)
 				if ok_p then live_prog = val end
 			end
 
-			-- Ghost progress: from the interpolated last_state (recorded prog field).
+			-- Ghost progress: from the interpolated last_state (recorded `pg` field, schema 2).
 			local last = mod.replayer.last_state()
-			local ghost_prog = last and last.prog
+			local ghost_prog = last and last.pg
 
 			timer:set_state({
 				ghost_t = ghost_t,
