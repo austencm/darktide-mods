@@ -162,16 +162,18 @@ HudElementGhostBeacon.set_active = function(self, active)
 	widget.visible = active
 end
 
--- Caller passes the raw projected screen pixel (HUD-logical, since use_hud_scale
--- is true and the caller has already multiplied by inverse_scale). Widget is
--- 200x60 anchored top-left; subtract half-extents so the projection point is
--- the visual center.
-local HALF_W, HALF_H = 100, 30
+-- Widget bounds: 200 (W) x 60 (H) for now -- grows in Task 8.
+-- Anchor: bottom edge of widget sits just above the projection point.
+-- The projection point is the head's world->screen pixel; the pole's tip
+-- terminates there too, so the panel visually rests atop the pole.
+local HALF_W = 100
+local POLE_GAP = 6  -- pixels between projection point and bottom of widget
 HudElementGhostBeacon.set_offset = function(self, x, y)
 	local widget = self._widgets_by_name and self._widgets_by_name.beacon
 	if not widget or not widget.offset then return end
+	local widget_h = (widget.content and widget.content.size and widget.content.size[2]) or 60
 	widget.offset[1] = (x or 0) - HALF_W
-	widget.offset[2] = (y or 0) - HALF_H
+	widget.offset[2] = (y or 0) - widget_h - POLE_GAP
 end
 
 -- Update the dynamic widget content from a replayer last_state frame.
