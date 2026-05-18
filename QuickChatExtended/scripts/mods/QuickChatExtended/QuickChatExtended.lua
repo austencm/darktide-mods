@@ -51,3 +51,26 @@ mod:hook_safe("HudElementSmartTagging", "_add_smart_tag_presentation", function(
 
     _send("auto_tagged_daemonhost", "tag_daemonhost")
 end)
+
+-- ##################################################
+-- Psyker head-exploded
+-- ##################################################
+
+local UISettings = require("scripts/settings/ui/ui_settings")
+
+mod:hook_safe("ActionOverloadExplosion", "_explode", function(self, action_settings)
+    -- Psyker peril vs Ogryn overheat share this action class.
+    if action_settings.overload_type ~= "warp_charge" then return end
+
+    local player = self._player
+    if not player then return end
+
+    if player == Managers.player:local_player(1) then
+        _send("auto_psyker_exploded_self", "psyker_explode")
+    else
+        local slot_color = mod:get("enable_slot_color")
+            and player:slot()
+            and UISettings.player_slot_colors[player:slot()]
+        _send("auto_psyker_exploded_teammate", "psyker_explode", player:name(), slot_color)
+    end
+end)

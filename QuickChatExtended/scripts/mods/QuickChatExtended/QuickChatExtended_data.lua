@@ -29,6 +29,26 @@ return {
                 tooltip = "auto_tagged_daemonhost_desc",
                 options = _preset_dropdown_options(),
             },
+            {
+                setting_id = "auto_psyker_exploded_self",
+                type = "dropdown",
+                default_value = "none",
+                tooltip = "auto_psyker_exploded_self_desc",
+                options = _preset_dropdown_options(),
+            },
+            {
+                setting_id = "auto_psyker_exploded_teammate",
+                type = "dropdown",
+                default_value = "none",
+                tooltip = "auto_psyker_exploded_teammate_desc",
+                options = _preset_dropdown_options(),
+            },
+            {
+                setting_id = "enable_slot_color",
+                type = "checkbox",
+                default_value = false,
+                tooltip = "enable_slot_color_desc",
+            },
         },
     },
 }
