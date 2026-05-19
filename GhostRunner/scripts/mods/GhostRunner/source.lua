@@ -42,6 +42,17 @@ function ReplaySource:duration()
 	return self._frames[#self._frames].t
 end
 
+-- Trail walk-back needs read access to the full frame array and the
+-- interpolator's current cursor; exposed as proper methods so callers don't
+-- reach into private fields.
+function ReplaySource:frames()
+	return self._frames
+end
+
+function ReplaySource:current_idx()
+	return self._idx
+end
+
 -- MockSource: scripted state for dev work without a .run file.
 local MockSource = {}
 MockSource.__index = MockSource
@@ -72,5 +83,10 @@ end
 function MockSource:metadata()
 	return { player = "Mock", class = "psyker", mission = { name = "mock" } }
 end
+
+-- MockSource doesn't back a frame array; trail rendering will no-op when
+-- frames() returns nil (the world_renderer guard handles this).
+function MockSource:frames() return nil end
+function MockSource:current_idx() return nil end
 
 return source

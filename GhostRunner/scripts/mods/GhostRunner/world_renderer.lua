@@ -50,7 +50,9 @@ end
 
 world_renderer.destroy = function()
     if _state.line_object and _state.world then
-        World.destroy_line_object(_state.world, _state.line_object)
+        -- pcall: if World.destroy_line_object is missing in this engine
+        -- version, prefer leaking the LineObject over crashing disarm.
+        pcall(World.destroy_line_object, _state.world, _state.line_object)
         mod:info("world_renderer: destroyed LineObject")
     end
     _state.line_object = nil

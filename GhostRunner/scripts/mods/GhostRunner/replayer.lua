@@ -19,11 +19,11 @@ replayer.state = function() return _state.name end
 replayer.last_state = function() return _state.last_state end
 
 replayer.frames = function()
-	return _state.source and _state.source._frames or nil
+	return _state.source and _state.source:frames() or nil
 end
 
 replayer.idx = function()
-	return _state.source and _state.source._idx or nil
+	return _state.source and _state.source:current_idx() or nil
 end
 
 replayer.elapsed = function()

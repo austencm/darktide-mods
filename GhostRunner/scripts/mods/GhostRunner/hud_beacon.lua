@@ -64,9 +64,9 @@ end
 local NAME_FONT_SIZE = 18
 local BAR_WIDTH = 140
 local BAR_HEIGHT = 6
-local BAR_SPACING = 9     -- vertical pixel spacing between bars
 local SEGMENT_SPACING = 2 -- thin gap between HP wound segments
 local MAX_WOUND_SEGMENTS = 5   -- enough for any class (ogryn caps at 5)
+local WIDGET_HEIGHT = 86  -- matches ghost_beacon_area.size[2] below; used by set_offset
 
 local BG_COLOR        = { 200, 30, 30, 30 }     -- semi-transparent dark bar backing
 local HP_COLOR        = { 255, 220, 60, 60 }    -- red (vanilla)
@@ -277,9 +277,8 @@ local POLE_GAP = 6  -- pixels between projection point and bottom of widget
 HudElementGhostBeacon.set_offset = function(self, x, y)
 	local widget = self._widgets_by_name and self._widgets_by_name.beacon
 	if not widget or not widget.offset then return end
-	local widget_h = (widget.content and widget.content.size and widget.content.size[2]) or 86
 	widget.offset[1] = (x or 0) - HALF_W
-	widget.offset[2] = (y or 0) - widget_h - POLE_GAP
+	widget.offset[2] = (y or 0) - WIDGET_HEIGHT - POLE_GAP
 end
 
 -- Update the player name. Called once when the ghost is loaded; not per-frame.
