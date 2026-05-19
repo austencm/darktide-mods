@@ -62,9 +62,10 @@ function MockSource:advance(dt)
 		p = { x, 20.0, z },
 		y = math.sin(self._elapsed * 0.5),
 		hp = 0.5 + 0.5 * math.sin(self._elapsed * 0.3),
-		peril = 0.5 + 0.5 * math.sin(self._elapsed * 0.7),
+		to = 0.5 + 0.5 * math.sin(self._elapsed * 0.7),
+		ab = 0.5 + 0.5 * math.sin(self._elapsed * 0.4),
 		w = 3,
-		d = false,
+		st = "walking",
 	}, false
 end
 

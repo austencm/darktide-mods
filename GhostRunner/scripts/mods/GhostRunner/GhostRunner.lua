@@ -312,70 +312,12 @@ mod:command("ghost_status", "GhostRunner: print recorder/replayer status", funct
 
 	local s = mod.replayer.last_state()
 	if s then
-		mod:echo(string.format("  last_state: t=%.2f p=(%.1f,%.1f,%.1f) hp=%.2f",
-			s.t, s.p[1], s.p[2], s.p[3], s.hp))
+		mod:echo(string.format("  last_state: t=%.2f p=(%.1f,%.1f,%.1f) hp=%.2f to=%.2f ab=%.2f st=%s",
+			s.t, s.p[1], s.p[2], s.p[3], s.hp, s.to or 0, s.ab or 0, tostring(s.st)))
 	end
 
 	-- Recorder dump still goes to the log file only (mod:info).
 	mod.recorder._dump()
-end)
-
--- TEMP (removed in Task 10 cleanup): verify schema-1 frame translation.
-mod:command("ghost_test_translate", "GhostRunner dev: schema-1 frame translation test", function()
-	-- Synthesize a schema-1-looking frame in memory.
-	local frame1_old = {
-		type = "f", t = 1.5, p = {1, 2, 3}, y = 0.5,
-		hp = 0.8, peril = 0.3, w = 3, d = true, prog = 0.1,
-	}
-	-- Round-trip through cjson to match what comes off disk.
-	local round = cjson.decode(cjson.encode(frame1_old))
-	-- Apply the read-side path by calling run_file.read on a synthesized file...
-	-- Actually simpler: directly invoke the (now internal) translator if exported.
-	-- Since _translate_schema1_frame is file-local, just verify by reading a
-	-- real schema-1 ghost file from the user's runs/ directory.
-	local index = mod.run_file.read_index()
-	local schema1_filename = nil
-	for _, entry in ipairs(index.runs or {}) do
-		local r = mod.run_file.read(entry.file)
-		if r and r.metadata.schema == 1 then
-			schema1_filename = entry.file
-			break
-		end
-	end
-	if not schema1_filename then
-		mod:echo("No schema-1 ghost in runs/. Test inconclusive — manually verify with a fresh recording (will be schema 2).")
-		return
-	end
-	local data = mod.run_file.read(schema1_filename)
-	if not data then
-		mod:echo("Schema-1 file failed to parse: " .. tostring(schema1_filename))
-		return
-	end
-	local f1 = data.frames[1]
-	mod:echo(string.format("Schema-1 loaded: %s | first frame: t=%.2f hp=%.2f st=%s pg=%s d=%s peril=%s",
-		schema1_filename, f1.t or 0, f1.hp or 0,
-		tostring(f1.st), tostring(f1.pg),
-		tostring(f1.d), tostring(f1.peril)))
-	mod:echo("Expected: st=walking or knocked_down (translated from d); d=nil; peril=nil")
-end)
-
--- TEMP (removed in Task 10 cleanup): verify interpolator handles schema-2 fields.
-mod:command("ghost_test_interp", "GhostRunner dev: interpolation test", function()
-	local frames = {
-		{ t = 0.0, p = {0,0,0}, y = 0,   hp = 1.0, to = 1.0, ab = 1.0, w = 3, st = "walking",     pg = 0.0 },
-		{ t = 1.0, p = {1,0,0}, y = 0.5, hp = 0.8, to = 0.5, ab = 0.5, w = 3, st = "sprinting",   pg = 0.1 },
-		{ t = 2.0, p = {2,0,0}, y = 1.0, hp = 0.4, to = 0.0, ab = 0.0, w = 2, st = "knocked_down",pg = 0.2 },
-	}
-	-- Sample at t=0.5 (between frame 1 and 2):
-	local s, idx, fin = mod.interpolation.frame_at(frames, 1, 0.5)
-	mod:echo(string.format("@t=0.5: p=(%.2f,%.2f,%.2f) hp=%.2f to=%.2f ab=%.2f st=%s pg=%.2f",
-		s.p[1], s.p[2], s.p[3], s.hp, s.to, s.ab, tostring(s.st), s.pg))
-	mod:echo("Expected: p=(0.5,0,0) hp=0.9 to=0.75 ab=0.75 st=walking pg=0.05")
-	-- Sample at t=1.5 (between frame 2 and 3):
-	local s2 = mod.interpolation.frame_at(frames, 2, 1.5)
-	mod:echo(string.format("@t=1.5: hp=%.2f to=%.2f ab=%.2f st=%s",
-		s2.hp, s2.to, s2.ab, tostring(s2.st)))
-	mod:echo("Expected: hp=0.6 to=0.25 ab=0.25 st=sprinting")
 end)
 
 return mod
