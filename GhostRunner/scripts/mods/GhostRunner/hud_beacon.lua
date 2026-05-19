@@ -24,6 +24,43 @@ local CLASS_GLYPHS = {
     adamant = cp(0xE050),
 }
 
+-- States in which we render NO status text. Sourced from
+-- scripts/settings/player_character/player_character_states.lua.
+-- Everything not in this set OR the hub-only set falls through to the
+-- status formatter.
+local ALIVE_STATES = {
+    walking = true, sprinting = true, jumping = true, falling = true,
+    sliding = true, dodging = true, stunned = true, interacting = true,
+    minigame = true, lunging = true, exploding = true,
+    ledge_hanging = true, ledge_hanging_falling = true,
+    ledge_hanging_pull_up = true, ledge_vaulting = true,
+    ladder_climbing = true, ladder_top_entering = true, ladder_top_leaving = true,
+    -- Hub-only states (won't appear in missions, but treat as alive defensively):
+    hub_companion_interaction = true, hub_emote = true, hub_jog = true,
+}
+
+-- Verb-only display per disabled state. Anything missing here falls back to
+-- the uppercase-with-spaces formatter (so future state names display
+-- *something* until this table is updated).
+local STATUS_TEXT = {
+    knocked_down   = "DOWN",
+    hogtied        = "HOGTIED",
+    pounced        = "POUNCED",
+    netted         = "NETTED",
+    consumed       = "CONSUMED",
+    grabbed        = "GRABBED",
+    mutant_charged = "GRABBED",
+    warp_grabbed   = "WARP GRABBED",
+    vortex_grabbed = "VORTEX GRABBED",
+    catapulted     = "CATAPULTED",
+    dead           = "DEAD",
+}
+
+local function status_text_for(state)
+    if not state or ALIVE_STATES[state] then return "" end
+    return STATUS_TEXT[state] or state:upper():gsub("_", " ")
+end
+
 local NAME_FONT_SIZE = 18
 local BAR_WIDTH = 140
 local BAR_HEIGHT = 6
@@ -54,6 +91,19 @@ local ui_definitions = {
 	},
 	widget_definitions = {
 		beacon = UIWidget.create_definition({
+			-- Backing rect for legibility. Color is set per-frame in set_state
+			-- (neutral dark when alive, dark red when disabled).
+			{
+				pass_type = "rect",
+				style_id  = "backing",
+				style     = {
+					horizontal_alignment = "center",
+					vertical_alignment   = "center",
+					size                 = { 196, 56 },   -- inset from widget bounds; grows in Task 8
+					color                = { 140, 0, 0, 0 },
+					offset               = { 0, 0, 0 },
+				},
+			},
 			-- Class icon (top, left of name). The glyph is in the Darktide PUA range;
 			-- proxima_nova_bold's font-fallback chain resolves it via darktide_custom_regular.
 			{
@@ -89,6 +139,25 @@ local ui_definitions = {
 					text_color                = NAME_COLOR,
 					drop_shadow               = true,
 					offset                    = { 0, 0, 1 },
+				},
+			},
+			-- Status row (verb-only when disabled, empty when alive). Always reserved
+			-- vertical space so the widget doesn't bounce when state changes.
+			{
+				pass_type = "text",
+				style_id  = "status_row",
+				value_id  = "status_row",
+				value     = "",
+				style     = {
+					font_size                 = 12,
+					font_type                 = "proxima_nova_bold",
+					text_horizontal_alignment = "center",
+					text_vertical_alignment   = "center",
+					horizontal_alignment      = "center",
+					vertical_alignment        = "top",
+					text_color                = { 255, 255, 80, 80 },   -- bright red
+					drop_shadow               = true,
+					offset                    = { 0, 22, 1 },           -- 22px below top
 				},
 			},
 			-- HP bar background. Pushed further below center to leave clear
@@ -179,27 +248,42 @@ end
 -- Update the dynamic widget content from a replayer last_state frame.
 -- state = { t, p, y, hp, peril, w, d, ... }
 HudElementGhostBeacon.set_state = function(self, state)
-	local widget = self._widgets_by_name and self._widgets_by_name.beacon
-	if not widget or not state then return end
-	local style = widget.style
-	if not style then return end
+    local widget = self._widgets_by_name and self._widgets_by_name.beacon
+    if not widget or not state then return end
+    local style   = widget.style
+    local content = widget.content
+    if not style or not content then return end
 
-	-- HP fill width: BAR_WIDTH * hp (clamp 0..1).
-	local hp = math.max(0, math.min(1, state.hp or 0))
-	if style.hp_fill and style.hp_fill.size then
-		style.hp_fill.size[1] = BAR_WIDTH * hp
-	end
+    -- HP / peril fills come from the existing v0 passes; replaced in Task 8.
+    local hp = math.max(0, math.min(1, state.hp or 0))
+    if style.hp_fill and style.hp_fill.size then
+        style.hp_fill.size[1] = 140 * hp
+    end
+    -- (Old peril update intentionally left until Task 8 -- harmless if peril field is nil.)
+    local peril = math.max(0, math.min(1, state.peril or 0))
+    if style.peril_fill and style.peril_fill.size then
+        style.peril_fill.size[1] = 140 * peril
+    end
 
-	-- Peril fill: same idea. Peril is 0 for non-Psyker; we keep the bg
-	-- visible regardless, but the fill is just zero-width.
-	local peril = math.max(0, math.min(1, state.peril or 0))
-	if style.peril_fill and style.peril_fill.size then
-		style.peril_fill.size[1] = BAR_WIDTH * peril
-	end
+    -- NEW: status row + alarm tint.
+    local is_alive = ALIVE_STATES[state.st]
+    content.status_row = status_text_for(state.st)
+    if style.name and style.name.text_color then
+        if is_alive then
+            style.name.text_color = { 255, 255, 255, 255 }
+        else
+            style.name.text_color = { 255, 255, 80, 80 }   -- bright red
+        end
+    end
+    if style.backing and style.backing.color then
+        if is_alive then
+            style.backing.color = { 140, 0, 0, 0 }          -- neutral dark
+        else
+            style.backing.color = { 160, 120, 0, 0 }        -- dark red
+        end
+    end
 
-	-- Defensive: rect-size mutations are usually picked up without a dirty
-	-- flag, but we mark dirty anyway in case the renderer caches anything.
-	widget.dirty = true
+    widget.dirty = true
 end
 
 -- Update the player name. Called once when the ghost is loaded; not per-frame.
