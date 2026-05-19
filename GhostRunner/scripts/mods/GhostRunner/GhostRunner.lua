@@ -135,7 +135,8 @@ mod.update = function(dt)
 		local idx = mod.replayer.idx and mod.replayer.idx()
 		local last = mod.replayer.last_state()
 		if not frames or not idx or not last then return end
-		local trail_duration = 4.0   -- TODO: read from settings in Task 9
+		if not mod:get("show_ghost_trail") then return end
+		local trail_duration = mod:get("trail_duration") or 4.0
 		mod.world_renderer.tick(frames, idx, last, trail_duration)
 	end)
 	if not okwr then mod:warning("world_renderer.tick error: " .. tostring(errwr)) end
@@ -146,6 +147,12 @@ mod.update = function(dt)
 		if not hud then return end
 		local element = hud:element("HudElementGhostBeacon")
 		if not element or not element.set_active then return end
+
+		-- Hide nameplate if the setting is disabled.
+		if not mod:get("show_ghost_nameplate") then
+			element:set_active(false)
+			return
+		end
 
 		-- Hide if not currently playing.
 		if mod.replayer.state() ~= "playing" then

@@ -67,6 +67,27 @@ return {
 		en = "Display a small widget showing ghost time and your delta.",
 	},
 
+	show_ghost_trail = {
+		en = "Show ghost trail",
+	},
+	show_ghost_trail_tooltip = {
+		en = "Draw a 3D trail and vertical pole at the ghost's recorded position.",
+	},
+
+	trail_duration = {
+		en = "Trail duration (seconds)",
+	},
+	trail_duration_tooltip = {
+		en = "How many seconds of recent history are shown as the ghost's trail. Shorter = more like a comet tail; longer = more like a route map.",
+	},
+
+	show_ghost_nameplate = {
+		en = "Show ghost nameplate",
+	},
+	show_ghost_nameplate_tooltip = {
+		en = "Show the floating panel with the ghost's name, status, and bars.",
+	},
+
 	open_runs_folder = {
 		en = "Open runs folder",
 	},
