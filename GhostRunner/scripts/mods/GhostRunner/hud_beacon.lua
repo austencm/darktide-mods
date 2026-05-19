@@ -248,42 +248,39 @@ end
 -- Update the dynamic widget content from a replayer last_state frame.
 -- state = { t, p, y, hp, peril, w, d, ... }
 HudElementGhostBeacon.set_state = function(self, state)
-    local widget = self._widgets_by_name and self._widgets_by_name.beacon
-    if not widget or not state then return end
-    local style   = widget.style
-    local content = widget.content
-    if not style or not content then return end
+	local widget = self._widgets_by_name and self._widgets_by_name.beacon
+	if not widget or not state then return end
+	local style   = widget.style
+	local content = widget.content
+	if not style or not content then return end
 
-    -- HP / peril fills come from the existing v0 passes; replaced in Task 8.
-    local hp = math.max(0, math.min(1, state.hp or 0))
-    if style.hp_fill and style.hp_fill.size then
-        style.hp_fill.size[1] = 140 * hp
-    end
-    -- (Old peril update intentionally left until Task 8 -- harmless if peril field is nil.)
-    local peril = math.max(0, math.min(1, state.peril or 0))
-    if style.peril_fill and style.peril_fill.size then
-        style.peril_fill.size[1] = 140 * peril
-    end
+	-- HP / peril fills come from the existing v0 passes; replaced in Task 8.
+	local hp = math.max(0, math.min(1, state.hp or 0))
+	if style.hp_fill and style.hp_fill.size then
+		style.hp_fill.size[1] = BAR_WIDTH * hp
+	end
+	-- (Old peril update intentionally left until Task 8 -- harmless if peril field is nil.)
+	local peril = math.max(0, math.min(1, state.peril or 0))
+	if style.peril_fill and style.peril_fill.size then
+		style.peril_fill.size[1] = BAR_WIDTH * peril
+	end
 
-    -- NEW: status row + alarm tint.
-    local is_alive = ALIVE_STATES[state.st]
-    content.status_row = status_text_for(state.st)
-    if style.name and style.name.text_color then
-        if is_alive then
-            style.name.text_color = { 255, 255, 255, 255 }
-        else
-            style.name.text_color = { 255, 255, 80, 80 }   -- bright red
-        end
-    end
-    if style.backing and style.backing.color then
-        if is_alive then
-            style.backing.color = { 140, 0, 0, 0 }          -- neutral dark
-        else
-            style.backing.color = { 160, 120, 0, 0 }        -- dark red
-        end
-    end
+	-- Status row + alarm tint. Treat missing state.st as alive (avoids a
+	-- one-frame alarm flash before the first interpolated frame arrives).
+	local is_alive = state.st == nil or ALIVE_STATES[state.st]
+	content.status_row = status_text_for(state.st)
+	if style.name and style.name.text_color then
+		style.name.text_color = is_alive
+			and { 255, 255, 255, 255 }
+			or { 255, 255, 80, 80 }   -- bright red
+	end
+	if style.backing and style.backing.color then
+		style.backing.color = is_alive
+			and { 140, 0, 0, 0 }      -- neutral dark
+			or { 160, 120, 0, 0 }     -- dark red
+	end
 
-    widget.dirty = true
+	widget.dirty = true
 end
 
 -- Update the player name. Called once when the ghost is loaded; not per-frame.
