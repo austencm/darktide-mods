@@ -150,6 +150,9 @@ replayer.arm_with_selected_ghost = function()
 		local class = mod._selected_ghost.data.metadata.class
 		beacon:set_class(class)
 	end
+	if beacon and beacon.set_wmax and mod._selected_ghost then
+		beacon:set_wmax(mod._selected_ghost.data.metadata.wmax or 1)
+	end
 
 	local m = _state.source:metadata().mission
 	replayer.try_pin_seed(m and m.seed)

@@ -64,154 +64,191 @@ end
 local NAME_FONT_SIZE = 18
 local BAR_WIDTH = 140
 local BAR_HEIGHT = 6
-local BG_COLOR = { 200, 30, 30, 30 }     -- semi-transparent dark backing
-local HP_COLOR = { 255, 220, 60, 60 }    -- red
-local PERIL_COLOR = { 255, 160, 80, 220 } -- purple
-local NAME_COLOR = { 255, 255, 255, 255 }
+local BAR_SPACING = 9     -- vertical pixel spacing between bars
+local SEGMENT_SPACING = 2 -- thin gap between HP wound segments
+local MAX_WOUND_SEGMENTS = 5   -- enough for any class (ogryn caps at 5)
 
--- Widget bounds: 200 wide x 60 tall.
--- Layout (relative to widget center):
---   name text:    -8 above center
---   hp bar:       +5 below center, BAR_WIDTH wide
---   peril bar:   +14 below center, BAR_WIDTH wide
--- The screen-space `widget.offset` is updated each frame with the projected
--- pixel for the ghost's center; widget passes use `style.offset` for layout
--- within the widget bounds.
+local BG_COLOR        = { 200, 30, 30, 30 }     -- semi-transparent dark bar backing
+local HP_COLOR        = { 255, 220, 60, 60 }    -- red (vanilla)
+local TOUGHNESS_COLOR = { 220, 220, 220, 255 }  -- pale silver-white
+local ABILITY_COLOR   = { 220, 200, 80, 255 }   -- gold
+local NAME_COLOR      = { 255, 255, 255, 255 }
+
+-- Programmatically build N wound-segment fill rect passes. Each segment
+-- can shrink to show partial fill, and hide entirely when wmax < its index.
+-- Layout (size + x-offset) is set per frame in _layout_hp_segments (below).
+local function _build_segment_passes()
+    local passes = {}
+    for i = 1, MAX_WOUND_SEGMENTS do
+        passes[#passes + 1] = {
+            pass_type = "rect",
+            style_id  = "hp_seg_" .. i,
+            style     = {
+                horizontal_alignment = "left",
+                vertical_alignment   = "center",
+                size                 = { 0, BAR_HEIGHT },   -- width set per frame
+                color                = HP_COLOR,
+                offset               = { 30, 45, 2 },        -- x set per frame
+            },
+        }
+    end
+    return passes
+end
+
+-- Build the complete passes list for the beacon widget. Combines the static
+-- passes (backing, icon, name, status row, tough bars, HP bg, ability bars)
+-- with the programmatically-generated HP wound segments.
+local function _build_all_passes()
+    local passes = {
+        -- 1. Backing rect (drawn first / underneath). Color set per-frame in set_state.
+        {
+            pass_type = "rect",
+            style_id  = "backing",
+            style     = {
+                horizontal_alignment = "center",
+                vertical_alignment   = "center",
+                size                 = { 196, 82 },
+                color                = { 140, 0, 0, 0 },
+                offset               = { 0, 0, 0 },
+            },
+        },
+        -- 2. Class icon (left of name on top row). PUA glyph via font fallback chain.
+        {
+            pass_type = "text",
+            style_id  = "class_icon",
+            value_id  = "class_icon",
+            value     = "",   -- set via set_class()
+            style     = {
+                font_size                 = 22,
+                font_type                 = "proxima_nova_bold",
+                text_horizontal_alignment = "center",
+                text_vertical_alignment   = "center",
+                horizontal_alignment      = "center",
+                vertical_alignment        = "top",
+                text_color                = { 255, 255, 255, 255 },
+                drop_shadow               = true,
+                offset                    = { -50, 0, 1 },
+            },
+        },
+        -- 3. Name text (centered on top row).
+        {
+            pass_type = "text",
+            style_id  = "name",
+            value_id  = "name",
+            value     = "Ghost",
+            style     = {
+                font_size                 = NAME_FONT_SIZE,
+                font_type                 = "proxima_nova_bold",
+                text_horizontal_alignment = "center",
+                text_vertical_alignment   = "center",
+                horizontal_alignment      = "center",
+                vertical_alignment        = "top",
+                text_color                = NAME_COLOR,
+                drop_shadow               = true,
+                offset                    = { 0, 0, 1 },
+            },
+        },
+        -- 4. Status row (empty when alive; verb text when disabled).
+        {
+            pass_type = "text",
+            style_id  = "status_row",
+            value_id  = "status_row",
+            value     = "",
+            style     = {
+                font_size                 = 12,
+                font_type                 = "proxima_nova_bold",
+                text_horizontal_alignment = "center",
+                text_vertical_alignment   = "center",
+                horizontal_alignment      = "center",
+                vertical_alignment        = "top",
+                text_color                = { 255, 255, 80, 80 },
+                drop_shadow               = true,
+                offset                    = { 0, 22, 1 },
+            },
+        },
+        -- 5. Toughness bar (top of the bar stack).
+        {
+            pass_type = "rect",
+            style_id  = "tough_bg",
+            style     = {
+                horizontal_alignment = "center",
+                vertical_alignment   = "center",
+                size                 = { BAR_WIDTH, BAR_HEIGHT },
+                color                = BG_COLOR,
+                offset               = { 0, 36, 1 },
+            },
+        },
+        {
+            pass_type = "rect",
+            style_id  = "tough_fill",
+            style     = {
+                horizontal_alignment = "left",
+                vertical_alignment   = "center",
+                size                 = { BAR_WIDTH, BAR_HEIGHT },
+                color                = TOUGHNESS_COLOR,
+                offset               = { 30, 36, 2 },
+            },
+        },
+        -- 6. HP bar background (drawn once behind all segments).
+        {
+            pass_type = "rect",
+            style_id  = "hp_bg",
+            style     = {
+                horizontal_alignment = "center",
+                vertical_alignment   = "center",
+                size                 = { BAR_WIDTH, BAR_HEIGHT },
+                color                = BG_COLOR,
+                offset               = { 0, 45, 1 },
+            },
+        },
+    }
+
+    -- 7. HP wound segments (5 max; trimmed per frame to actual wmax).
+    for _, seg in ipairs(_build_segment_passes()) do
+        passes[#passes + 1] = seg
+    end
+
+    -- 8. Ability bar (bottom).
+    passes[#passes + 1] = {
+        pass_type = "rect",
+        style_id  = "ability_bg",
+        style     = {
+            horizontal_alignment = "center",
+            vertical_alignment   = "center",
+            size                 = { BAR_WIDTH, BAR_HEIGHT },
+            color                = BG_COLOR,
+            offset               = { 0, 54, 1 },
+        },
+    }
+    passes[#passes + 1] = {
+        pass_type = "rect",
+        style_id  = "ability_fill",
+        style     = {
+            horizontal_alignment = "left",
+            vertical_alignment   = "center",
+            size                 = { BAR_WIDTH, BAR_HEIGHT },
+            color                = ABILITY_COLOR,
+            offset               = { 30, 54, 2 },
+        },
+    }
+
+    return passes
+end
 
 local ui_definitions = {
-	scenegraph_definition = {
-		screen = UIWorkspaceSettings.screen,
-		ghost_beacon_area = {
-			parent             = "screen",
-			vertical_alignment = "top",
-			horizontal_alignment = "left",
-			size               = { 200, 60 },
-			position           = { 0, 0, 5 },
-		},
-	},
-	widget_definitions = {
-		beacon = UIWidget.create_definition({
-			-- Backing rect for legibility. Color is set per-frame in set_state
-			-- (neutral dark when alive, dark red when disabled).
-			{
-				pass_type = "rect",
-				style_id  = "backing",
-				style     = {
-					horizontal_alignment = "center",
-					vertical_alignment   = "center",
-					size                 = { 196, 56 },   -- inset from widget bounds; grows in Task 8
-					color                = { 140, 0, 0, 0 },
-					offset               = { 0, 0, 0 },
-				},
-			},
-			-- Class icon (top, left of name). The glyph is in the Darktide PUA range;
-			-- proxima_nova_bold's font-fallback chain resolves it via darktide_custom_regular.
-			{
-				pass_type = "text",
-				style_id  = "class_icon",
-				value_id  = "class_icon",
-				value     = "",  -- set via set_class()
-				style     = {
-					font_size                 = 22,
-					font_type                 = "proxima_nova_bold",
-					text_horizontal_alignment = "center",
-					text_vertical_alignment   = "center",
-					horizontal_alignment      = "center",
-					vertical_alignment        = "top",
-					text_color                = { 255, 255, 255, 255 },
-					drop_shadow               = true,
-					offset                    = { -50, 0, 1 },  -- centered then nudged left
-				},
-			},
-			-- Name (top of widget)
-			{
-				pass_type = "text",
-				style_id  = "name",
-				value_id  = "name",
-				value     = "Ghost",
-				style     = {
-					font_size                 = NAME_FONT_SIZE,
-					font_type                 = "proxima_nova_bold",
-					text_horizontal_alignment = "center",
-					text_vertical_alignment   = "center",
-					horizontal_alignment      = "center",
-					vertical_alignment        = "top",
-					text_color                = NAME_COLOR,
-					drop_shadow               = true,
-					offset                    = { 0, 0, 1 },
-				},
-			},
-			-- Status row (verb-only when disabled, empty when alive). Always reserved
-			-- vertical space so the widget doesn't bounce when state changes.
-			{
-				pass_type = "text",
-				style_id  = "status_row",
-				value_id  = "status_row",
-				value     = "",
-				style     = {
-					font_size                 = 12,
-					font_type                 = "proxima_nova_bold",
-					text_horizontal_alignment = "center",
-					text_vertical_alignment   = "center",
-					horizontal_alignment      = "center",
-					vertical_alignment        = "top",
-					text_color                = { 255, 255, 80, 80 },   -- bright red
-					drop_shadow               = true,
-					offset                    = { 0, 22, 1 },           -- 22px below top
-				},
-			},
-			-- HP bar background. Pushed further below center to leave clear
-			-- space under the name text (which extends below the top of the
-			-- widget by the font's baseline + descender).
-			{
-				pass_type = "rect",
-				style_id  = "hp_bg",
-				style     = {
-					horizontal_alignment = "center",
-					vertical_alignment   = "center",
-					size                 = { BAR_WIDTH, BAR_HEIGHT },
-					color                = BG_COLOR,
-					offset               = { 0, 14, 1 },
-				},
-			},
-			-- HP bar fill
-			{
-				pass_type = "rect",
-				style_id  = "hp_fill",
-				style     = {
-					horizontal_alignment = "left",
-					vertical_alignment   = "center",
-					size                 = { BAR_WIDTH, BAR_HEIGHT },
-					color                = HP_COLOR,
-					offset               = { 30, 14, 2 },
-				},
-			},
-			-- Peril bar background
-			{
-				pass_type = "rect",
-				style_id  = "peril_bg",
-				style     = {
-					horizontal_alignment = "center",
-					vertical_alignment   = "center",
-					size                 = { BAR_WIDTH, BAR_HEIGHT },
-					color                = BG_COLOR,
-					offset               = { 0, 23, 1 },
-				},
-			},
-			-- Peril bar fill
-			{
-				pass_type = "rect",
-				style_id  = "peril_fill",
-				style     = {
-					horizontal_alignment = "left",
-					vertical_alignment   = "center",
-					size                 = { BAR_WIDTH, BAR_HEIGHT },
-					color                = PERIL_COLOR,
-					offset               = { 30, 23, 2 },
-				},
-			},
-		}, "ghost_beacon_area"),
-	},
+    scenegraph_definition = {
+        screen = UIWorkspaceSettings.screen,
+        ghost_beacon_area = {
+            parent               = "screen",
+            vertical_alignment   = "top",
+            horizontal_alignment = "left",
+            size                 = { 200, 86 },   -- grown from 60 for status row + 3 bars
+            position             = { 0, 0, 5 },
+        },
+    },
+    widget_definitions = {
+        beacon = UIWidget.create_definition(_build_all_passes(), "ghost_beacon_area"),
+    },
 }
 
 local HudElementGhostBeacon = class("HudElementGhostBeacon", "HudElementBase")
@@ -231,7 +268,7 @@ HudElementGhostBeacon.set_active = function(self, active)
 	widget.visible = active
 end
 
--- Widget bounds: 200 (W) x 60 (H) for now -- grows in Task 8.
+-- Widget bounds: 200 (W) x 86 (H).
 -- Anchor: bottom edge of widget sits just above the projection point.
 -- The projection point is the head's world->screen pixel; the pole's tip
 -- terminates there too, so the panel visually rests atop the pole.
@@ -240,47 +277,9 @@ local POLE_GAP = 6  -- pixels between projection point and bottom of widget
 HudElementGhostBeacon.set_offset = function(self, x, y)
 	local widget = self._widgets_by_name and self._widgets_by_name.beacon
 	if not widget or not widget.offset then return end
-	local widget_h = (widget.content and widget.content.size and widget.content.size[2]) or 60
+	local widget_h = (widget.content and widget.content.size and widget.content.size[2]) or 86
 	widget.offset[1] = (x or 0) - HALF_W
 	widget.offset[2] = (y or 0) - widget_h - POLE_GAP
-end
-
--- Update the dynamic widget content from a replayer last_state frame.
--- state = { t, p, y, hp, peril, w, d, ... }
-HudElementGhostBeacon.set_state = function(self, state)
-	local widget = self._widgets_by_name and self._widgets_by_name.beacon
-	if not widget or not state then return end
-	local style   = widget.style
-	local content = widget.content
-	if not style or not content then return end
-
-	-- HP / peril fills come from the existing v0 passes; replaced in Task 8.
-	local hp = math.max(0, math.min(1, state.hp or 0))
-	if style.hp_fill and style.hp_fill.size then
-		style.hp_fill.size[1] = BAR_WIDTH * hp
-	end
-	-- (Old peril update intentionally left until Task 8 -- harmless if peril field is nil.)
-	local peril = math.max(0, math.min(1, state.peril or 0))
-	if style.peril_fill and style.peril_fill.size then
-		style.peril_fill.size[1] = BAR_WIDTH * peril
-	end
-
-	-- Status row + alarm tint. Treat missing state.st as alive (avoids a
-	-- one-frame alarm flash before the first interpolated frame arrives).
-	local is_alive = state.st == nil or ALIVE_STATES[state.st]
-	content.status_row = status_text_for(state.st)
-	if style.name and style.name.text_color then
-		style.name.text_color = is_alive
-			and { 255, 255, 255, 255 }
-			or { 255, 255, 80, 80 }   -- bright red
-	end
-	if style.backing and style.backing.color then
-		style.backing.color = is_alive
-			and { 140, 0, 0, 0 }      -- neutral dark
-			or { 160, 120, 0, 0 }     -- dark red
-	end
-
-	widget.dirty = true
 end
 
 -- Update the player name. Called once when the ghost is loaded; not per-frame.
@@ -303,6 +302,78 @@ HudElementGhostBeacon.set_class = function(self, class_name)
 		widget.content.class_icon = glyph
 		widget.dirty = true
 	end
+end
+
+-- Pre-stores how many segments the HP bar should display. Schema-1 ghosts
+-- (no wmax) fall back to 1, rendering an un-segmented bar.
+HudElementGhostBeacon.set_wmax = function(self, wmax)
+    self._wmax = (wmax and wmax > 0) and wmax or 1
+end
+
+-- Layout the wound-segment passes for a given hp fraction.
+-- Sets each segment widget's size + x-offset, hides unused segments.
+-- Formula mirrors vanilla scripts/ui/hud/elements/player_panel_base/...:1460-1500.
+local function _layout_hp_segments(style, hp, num_segments)
+    num_segments = math.max(1, math.min(MAX_WOUND_SEGMENTS, num_segments or 1))
+    local step = 1 / num_segments
+    local segment_width = (BAR_WIDTH - (num_segments - 1) * SEGMENT_SPACING) / num_segments
+    -- The bar's left edge is at offset.x = 30 (the standard inset).
+    -- Lay segments left-to-right.
+    for i = 1, MAX_WOUND_SEGMENTS do
+        local pass = style["hp_seg_" .. i]
+        if not pass then
+            -- defensive; segment passes should always exist
+        elseif i > num_segments then
+            -- hide unused segment by setting its width to 0
+            if pass.size then pass.size[1] = 0 end
+        else
+            local end_v = i * step
+            local start_v = end_v - step
+            local fill = math.max(0, math.min(1, (hp - start_v) / step))
+            if pass.size then pass.size[1] = segment_width * fill end
+            -- Position this segment's left edge:
+            local x = 30 + (i - 1) * (segment_width + SEGMENT_SPACING)
+            if pass.offset then pass.offset[1] = x end
+        end
+    end
+end
+
+HudElementGhostBeacon.set_state = function(self, state)
+	local widget = self._widgets_by_name and self._widgets_by_name.beacon
+	if not widget or not state then return end
+	local style   = widget.style
+	local content = widget.content
+	if not style or not content then return end
+
+	local hp = math.max(0, math.min(1, state.hp or 0))
+	local to = math.max(0, math.min(1, state.to or 0))
+	local ab = math.max(0, math.min(1, state.ab or 0))
+
+	-- Toughness bar fill.
+	if style.tough_fill and style.tough_fill.size then
+		style.tough_fill.size[1] = BAR_WIDTH * to
+	end
+
+	-- HP bar: vanilla quirk -- when knocked_down, collapse to 1 segment.
+	local is_alive = state.st == nil or ALIVE_STATES[state.st]
+	local effective_segments = (state.st == "knocked_down") and 1 or (self._wmax or 1)
+	_layout_hp_segments(style, hp, effective_segments)
+
+	-- Ability bar fill.
+	if style.ability_fill and style.ability_fill.size then
+		style.ability_fill.size[1] = BAR_WIDTH * ab
+	end
+
+	-- Status row + alarm tints (from Task 7).
+	content.status_row = status_text_for(state.st)
+	if style.name and style.name.text_color then
+		style.name.text_color = is_alive and { 255, 255, 255, 255 } or { 255, 255, 80, 80 }
+	end
+	if style.backing and style.backing.color then
+		style.backing.color = is_alive and { 140, 0, 0, 0 } or { 160, 120, 0, 0 }
+	end
+
+	widget.dirty = true
 end
 
 return HudElementGhostBeacon
