@@ -101,6 +101,7 @@ for k in pairs(BLOCKED_INPUTS_GRENADE_ABILITY)  do ANY_BLOCKED_INPUT[k] = true e
 mod.settings = {
 	peril_threshold               = (mod:get("peril_threshold") or 99.8) / 100,
 	block_force_sword             = mod:get("block_force_sword"),
+	block_laspistol_push          = mod:get("block_laspistol_push"),
 	block_force_staff_fire        = mod:get("block_force_staff_fire"),
 	block_warp_ability            = mod:get("block_warp_ability"),
 	disable_with_crystalline_will = mod:get("disable_with_crystalline_will"),
@@ -114,6 +115,7 @@ mod.settings = {
 	debug_dump                    = mod:get("debug_dump"),
 }
 if mod.settings.block_force_sword             == nil then mod.settings.block_force_sword             = true  end
+if mod.settings.block_laspistol_push          == nil then mod.settings.block_laspistol_push          = true  end
 if mod.settings.block_force_staff_fire        == nil then mod.settings.block_force_staff_fire        = true  end
 if mod.settings.block_warp_ability            == nil then mod.settings.block_warp_ability            = true  end
 if mod.settings.disable_with_crystalline_will == nil then mod.settings.disable_with_crystalline_will = true  end
@@ -286,6 +288,16 @@ local function is_force_sword(weapon_name)
 	return weapon_name ~= "" and string_find(weapon_name, "forcesword", 1, true) ~= nil
 end
 
+-- Both laspistol templates (laspistol_p1_m1, laspistol_p1_m3) define an
+-- `action_psyker_push` branch selected only when the wielder is a Psyker
+-- (`archetype.name == "psyker"`). That branch generates peril; the standard
+-- `action_normal_push` served to other archetypes does not. Substring match
+-- on `laspistol` covers both current variants and any future laspistol
+-- Fatshark adds with the same dual-push template structure.
+local function is_laspistol(weapon_name)
+	return weapon_name ~= "" and string_find(weapon_name, "laspistol", 1, true) ~= nil
+end
+
 -- Tracks whether the player is currently holding RMB (block stance). The
 -- basic push (RMB + LMB) is free. The push *attack* is the follow-up swing
 -- — `action_one_pressed` again while RMB is still held, within the combat
@@ -334,8 +346,9 @@ local function should_block(action_name)
 	local settings = mod.settings
 	local base = settings.peril_threshold
 
-	if settings.block_force_sword and BLOCKED_INPUTS_WEAPON_EXTRA[action_name] then
-		return peril >= base
+	if BLOCKED_INPUTS_WEAPON_EXTRA[action_name] then
+		if settings.block_force_sword   and is_force_sword(weapon_name)   then return peril >= base end
+		if settings.block_laspistol_push and is_laspistol(weapon_name)    then return peril >= base end
 	end
 
 	-- LMB cases: force-staff fire OR an ability-as-weapon being cast (Brain
