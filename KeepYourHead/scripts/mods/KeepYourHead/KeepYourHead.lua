@@ -151,9 +151,14 @@ local function check_is_in_hub()
 	return game_mode_name == "hub"
 end
 
+-- IMPORTANT: use :local_player_safe(1), NOT :local_player(1). The unsafe
+-- variant calls Network.peer_id() unconditionally; at title screen / pre-
+-- session there's no peer id and the C-side peer_id() derefs NULL → engine
+-- access violation. local_player_safe guards on Managers.connection being
+-- initialized and returns nil otherwise — exactly what we want.
 local function check_is_local_player_psyker()
 	local player_manager = Managers.player
-	local player = player_manager and player_manager:local_player(1)
+	local player = player_manager and player_manager:local_player_safe(1)
 	local unit = player and player.player_unit
 	if not unit or not Unit.alive(unit) then return false end
 	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
@@ -179,13 +184,13 @@ end
 local event_subscriber = {}
 
 event_subscriber.on_assign_player_unit_ownership = function(self, player, unit)
-	local local_player = Managers.player and Managers.player:local_player(1)
+	local local_player = Managers.player and Managers.player:local_player_safe(1)
 	if player ~= local_player then return end
 	is_local_player_psyker = unit_is_psyker(unit)
 end
 
 event_subscriber.on_player_unit_despawned = function(self, player)
-	local local_player = Managers.player and Managers.player:local_player(1)
+	local local_player = Managers.player and Managers.player:local_player_safe(1)
 	if player ~= local_player then return end
 	is_local_player_psyker = false
 end
