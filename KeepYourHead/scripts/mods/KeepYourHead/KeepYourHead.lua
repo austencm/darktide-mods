@@ -156,20 +156,21 @@ end
 -- session there's no peer id and the C-side peer_id() derefs NULL → engine
 -- access violation. local_player_safe guards on Managers.connection being
 -- initialized and returns nil otherwise — exactly what we want.
+--
+-- DO NOT detect class via `unit_data:read_component("warp_charge")`. That
+-- component is present on every Imperium player unit (Vet, Zealot, Ogryn,
+-- Psyker) — verified empirically when our cache flipped to true for a
+-- Veteran 18ms after spawn as the component finished registering. Use
+-- the canonical archetype check that `action_psyker_push` itself uses.
 local function check_is_local_player_psyker()
 	local player_manager = Managers.player
 	local player = player_manager and player_manager:local_player_safe(1)
 	local unit = player and player.player_unit
 	if not unit or not Unit.alive(unit) then return false end
 	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
-	if not unit_data then return false end
-	return unit_data:read_component("warp_charge") ~= nil
-end
-
-local function unit_is_psyker(unit)
-	if not unit or not Unit.alive(unit) then return false end
-	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
-	return unit_data and unit_data:read_component("warp_charge") ~= nil
+	if not unit_data or not unit_data.archetype then return false end
+	local archetype = unit_data:archetype()
+	return archetype and archetype.name == "psyker"
 end
 
 -- Engine `assign_player_unit_ownership` fires from `PlayerUnitSpawnManager`
