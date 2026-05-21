@@ -230,12 +230,18 @@ local function _read_state(unit)
 		w = hp_ext:num_wounds() or 0
 	end
 
-	-- CSM state name (replaces v0's boolean `d`).
+	-- CSM state name (replaces v0's boolean `d`). Read from the
+	-- character_state component as a string; csm:current_state() returns
+	-- the state OBJECT (userdata), not the name -- cjson can't serialize it.
+	-- Pattern verified against PlayerUnitStatus.is_disabled which reads
+	-- `character_state_component.state_name` directly.
 	local st = "walking"
-	local csm = ScriptUnit.has_extension(unit, "character_state_machine_system")
-	if csm and csm.current_state then
-		local ok, val = pcall(csm.current_state, csm)
-		if ok and val then st = val end
+	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
+	if unit_data then
+		local ok, comp = pcall(unit_data.read_component, unit_data, "character_state")
+		if ok and comp and comp.state_name then
+			st = comp.state_name
+		end
 	end
 
 	-- Main-path progress (unchanged from v0).
