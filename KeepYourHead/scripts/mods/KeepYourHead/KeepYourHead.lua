@@ -138,18 +138,37 @@ end
 
 local is_in_hub = false
 
+-- Cached on lifecycle hooks (DMF fires both during cold start + on every state
+-- transition). Default false: stay disengaged until the local player is
+-- confirmed Psyker. Gates the input hook, mod.update, and the HUD element's
+-- validation_function so non-Psyker characters pay effectively zero per-frame
+-- cost — no extension walks, no HUD widget instantiation.
+local is_local_player_psyker = false
+
 local function check_is_in_hub()
 	local game_mode_manager = Managers.state and Managers.state.game_mode
 	local game_mode_name = game_mode_manager and game_mode_manager:game_mode_name()
 	return game_mode_name == "hub"
 end
 
+local function check_is_local_player_psyker()
+	local player_manager = Managers.player
+	local player = player_manager and player_manager:local_player(1)
+	local unit = player and player.player_unit
+	if not unit or not Unit.alive(unit) then return false end
+	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
+	if not unit_data then return false end
+	return unit_data:read_component("warp_charge") ~= nil
+end
+
 mod.on_game_state_changed = function(status, state_name)
 	is_in_hub = check_is_in_hub()
+	is_local_player_psyker = check_is_local_player_psyker()
 end
 
 mod.on_all_mods_loaded = function()
 	is_in_hub = check_is_in_hub()
+	is_local_player_psyker = check_is_local_player_psyker()
 end
 
 -- Warp Unbound (talent that powers up Scrier's Gaze) grants the buff
@@ -477,6 +496,10 @@ local function input_hook(func, self, action_name)
 		end
 		is_blocking_with_rmb = now_blocking
 	end
+	-- Non-Psyker short-circuit: bail before any extension reads or should_block
+	-- work. Stance tracking above stays current so a mid-session swap into a
+	-- Psyker character has correct push-attack chain state on the next input.
+	if not is_local_player_psyker then return out end
 	-- Skip the pressed-derivation entirely when debug dump is off (the hot
 	-- path for normal play). When on, derive once and reuse out_type for the
 	-- return-value coercion so we don't call type(out) twice.
@@ -533,7 +556,8 @@ mod:register_hud_element({
 	validation_function = function(params)
 		local game_mode_manager = Managers.state and Managers.state.game_mode
 		local game_mode_name = game_mode_manager and game_mode_manager:game_mode_name()
-		return game_mode_name ~= "hub"
+		if game_mode_name == "hub" then return false end
+		return check_is_local_player_psyker()
 	end,
 })
 
@@ -542,6 +566,7 @@ mod:register_hud_element({
 -- manager's HUD and toggle its widget visibility. No-ops if the HUD or element
 -- isn't up yet (e.g. during the initial mission load).
 mod.update = function(dt)
+	if not is_local_player_psyker then return end
 	local ui_manager = Managers.ui
 	local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
 	if not hud then return end
