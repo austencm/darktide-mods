@@ -183,16 +183,21 @@ end
 -- for the whole game session; EventManager has no per-state teardown.
 local event_subscriber = {}
 
+-- We don't filter by identity on the event arg — in solo training and
+-- some character-swap paths, `local_player_safe(1)` returned nil or a
+-- stale Player object, so the identity check silently swallowed the real
+-- update. Recomputing from authoritative state (Managers.player →
+-- local_player_safe → player.player_unit → warp_charge component) is
+-- robust against whichever player the event is for, since
+-- check_is_local_player_psyker always looks at the LOCAL player.
 event_subscriber.on_assign_player_unit_ownership = function(self, player, unit)
-	local local_player = Managers.player and Managers.player:local_player_safe(1)
-	if player ~= local_player then return end
-	is_local_player_psyker = unit_is_psyker(unit)
+	is_local_player_psyker = check_is_local_player_psyker()
+	pcall(print, string.format("[KeepYourHead] assign_player_unit_ownership → is_psyker=%s", tostring(is_local_player_psyker)))
 end
 
 event_subscriber.on_player_unit_despawned = function(self, player)
-	local local_player = Managers.player and Managers.player:local_player_safe(1)
-	if player ~= local_player then return end
-	is_local_player_psyker = false
+	is_local_player_psyker = check_is_local_player_psyker()
+	pcall(print, string.format("[KeepYourHead] player_unit_despawned → is_psyker=%s", tostring(is_local_player_psyker)))
 end
 
 local function ensure_event_subscriptions()
@@ -211,6 +216,7 @@ mod.on_game_state_changed = function(status, state_name)
 	is_in_hub = check_is_in_hub()
 	ensure_event_subscriptions()
 	is_local_player_psyker = check_is_local_player_psyker()
+	pcall(print, string.format("[KeepYourHead] on_game_state_changed %s/%s → is_psyker=%s", tostring(status), tostring(state_name), tostring(is_local_player_psyker)))
 end
 
 mod.on_all_mods_loaded = function()
