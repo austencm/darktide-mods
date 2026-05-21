@@ -193,12 +193,10 @@ local event_subscriber = {}
 -- check_is_local_player_psyker always looks at the LOCAL player.
 event_subscriber.on_assign_player_unit_ownership = function(self, player, unit)
 	is_local_player_psyker = check_is_local_player_psyker()
-	pcall(print, string.format("[KeepYourHead] assign_player_unit_ownership → is_psyker=%s", tostring(is_local_player_psyker)))
 end
 
 event_subscriber.on_player_unit_despawned = function(self, player)
 	is_local_player_psyker = check_is_local_player_psyker()
-	pcall(print, string.format("[KeepYourHead] player_unit_despawned → is_psyker=%s", tostring(is_local_player_psyker)))
 end
 
 local function ensure_event_subscriptions()
@@ -217,7 +215,6 @@ mod.on_game_state_changed = function(status, state_name)
 	is_in_hub = check_is_in_hub()
 	ensure_event_subscriptions()
 	is_local_player_psyker = check_is_local_player_psyker()
-	pcall(print, string.format("[KeepYourHead] on_game_state_changed %s/%s → is_psyker=%s", tostring(status), tostring(state_name), tostring(is_local_player_psyker)))
 end
 
 mod.on_all_mods_loaded = function()
