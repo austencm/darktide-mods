@@ -64,10 +64,9 @@ return {
 					{
 						setting_id = "trail_duration",
 						type = "numeric",
-						default_value = 4.0,
-						range = { 1.0, 10.0 },
-						step = 0.5,
-						decimals_number = 1,
+						default_value = 4,
+						range = { 1, 10 },
+						decimals_number = 0,
 						title = "trail_duration",
 						tooltip = "trail_duration_tooltip",
 					},
