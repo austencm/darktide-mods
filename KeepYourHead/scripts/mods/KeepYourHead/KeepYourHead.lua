@@ -161,13 +161,56 @@ local function check_is_local_player_psyker()
 	return unit_data:read_component("warp_charge") ~= nil
 end
 
+local function unit_is_psyker(unit)
+	if not unit or not Unit.alive(unit) then return false end
+	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
+	return unit_data and unit_data:read_component("warp_charge") ~= nil
+end
+
+-- Engine `assign_player_unit_ownership` fires from `PlayerUnitSpawnManager`
+-- AFTER `player.player_unit = unit` is set and all extensions are live, on
+-- both server and client. This is the only signal that reliably catches
+-- character swaps that bypass the hub (e.g. SoloPlay-style direct re-entry
+-- into Psykhanium after picking a different class) — game_state_changed
+-- alone fires before the new player_unit is in place. Counterpart
+-- `player_unit_despawned` flips us back off so the cache doesn't lie about
+-- a stale unit during the between-missions gap. The mod stays subscribed
+-- for the whole game session; EventManager has no per-state teardown.
+local event_subscriber = {}
+
+event_subscriber.on_assign_player_unit_ownership = function(self, player, unit)
+	local local_player = Managers.player and Managers.player:local_player(1)
+	if player ~= local_player then return end
+	is_local_player_psyker = unit_is_psyker(unit)
+end
+
+event_subscriber.on_player_unit_despawned = function(self, player)
+	local local_player = Managers.player and Managers.player:local_player(1)
+	if player ~= local_player then return end
+	is_local_player_psyker = false
+end
+
+local function ensure_event_subscriptions()
+	local event_manager = Managers.event
+	if not event_manager then return end
+	-- Unregister-then-register is idempotent on EventManager (unregister no-ops
+	-- if not present), so we can call this freely on lifecycle hooks without
+	-- ending up with duplicate callbacks.
+	event_manager:unregister(event_subscriber, "assign_player_unit_ownership")
+	event_manager:register(event_subscriber, "assign_player_unit_ownership", "on_assign_player_unit_ownership")
+	event_manager:unregister(event_subscriber, "player_unit_despawned")
+	event_manager:register(event_subscriber, "player_unit_despawned", "on_player_unit_despawned")
+end
+
 mod.on_game_state_changed = function(status, state_name)
 	is_in_hub = check_is_in_hub()
+	ensure_event_subscriptions()
 	is_local_player_psyker = check_is_local_player_psyker()
 end
 
 mod.on_all_mods_loaded = function()
 	is_in_hub = check_is_in_hub()
+	ensure_event_subscriptions()
 	is_local_player_psyker = check_is_local_player_psyker()
 end
 
