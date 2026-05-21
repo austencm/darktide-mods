@@ -51,10 +51,20 @@ end
 world_renderer.destroy = function()
     if _state.line_object and _state.world then
         -- pcall: if World.destroy_line_object is missing in this engine
-        -- version, prefer leaking the LineObject over crashing disarm.
+        -- version, OR if the world was already destroyed under us (level
+        -- transition / session change), prefer leaking the LineObject over
+        -- crashing. The engine reclaims everything when the world dies.
         pcall(World.destroy_line_object, _state.world, _state.line_object)
         mod:info("world_renderer: destroyed LineObject")
     end
+    _state.line_object = nil
+    _state.world = nil
+end
+
+-- Drop the cached LineObject without trying to destroy it (used when the
+-- world has already been torn down under us by a level/session transition,
+-- so the handle is stale and calling destroy would crash).
+local function _invalidate()
     _state.line_object = nil
     _state.world = nil
 end
@@ -66,8 +76,22 @@ end
 -- current_state : the interpolated last_state (provides current foot p + st)
 -- trail_duration: seconds of recorded history to render as trail
 world_renderer.tick = function(frames, current_idx, current_state, trail_duration)
+    -- Validate the cached world handle every frame. Level transitions and
+    -- session changes (hub -> lobby -> mission) destroy the level_world out
+    -- from under us; our cached LineObject and world pointer become stale
+    -- ("Bad pointer"). Calling LineObject.reset on a dead handle crashes
+    -- the engine (access violation + 16s watchdog). Detect by comparing
+    -- the live level_world to our cache; if they differ, drop the stale
+    -- handle WITHOUT calling destroy on it (the engine already reclaimed
+    -- it when the old world died).
+    local live_world = _level_world()
+    if _state.world and live_world ~= _state.world then
+        _invalidate()
+    end
+
     if not _state.line_object then
-        -- Try to create now if it failed earlier (e.g. early replay frames).
+        -- Try to create now if it failed earlier (e.g. early replay frames)
+        -- or we just invalidated due to a world swap.
         if not world_renderer.create() then return end
     end
     if not current_state or not current_state.p then return end
