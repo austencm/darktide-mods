@@ -1,4 +1,4 @@
-local mod = get_mod("WitchLeash")
+local mod = get_mod("KeepYourHead")
 
 -- Single client-side input gate. The mod hooks ONLY InputService — every other
 -- piece of state (peril, wielded weapon, equipped abilities) is read lazily
@@ -19,11 +19,11 @@ local type_of     = type
 -- standard sandbox-safe path. The output lands in
 --   %USERPROFILE%\AppData\Roaming\Fatshark\Darktide\console_logs\
 -- in a per-session file named `console-<timestamp>-<guid>.log` — open the
--- newest file and search for "WitchLeash". pcall guards in case `print` is
+-- newest file and search for "KeepYourHead". pcall guards in case `print` is
 -- missing in some configurations.
 local function debug_log(line)
 	mod:echo(line)
-	pcall(print, "[WitchLeash] " .. line)
+	pcall(print, "[KeepYourHead] " .. line)
 end
 
 local PERIL_FREE_ABILITIES = {
@@ -101,6 +101,7 @@ for k in pairs(BLOCKED_INPUTS_GRENADE_ABILITY)  do ANY_BLOCKED_INPUT[k] = true e
 mod.settings = {
 	peril_threshold               = (mod:get("peril_threshold") or 99.8) / 100,
 	block_force_sword             = mod:get("block_force_sword"),
+	block_laspistol_push          = mod:get("block_laspistol_push"),
 	block_force_staff_fire        = mod:get("block_force_staff_fire"),
 	block_warp_ability            = mod:get("block_warp_ability"),
 	disable_with_crystalline_will = mod:get("disable_with_crystalline_will"),
@@ -114,6 +115,7 @@ mod.settings = {
 	debug_dump                    = mod:get("debug_dump"),
 }
 if mod.settings.block_force_sword             == nil then mod.settings.block_force_sword             = true  end
+if mod.settings.block_laspistol_push          == nil then mod.settings.block_laspistol_push          = true  end
 if mod.settings.block_force_staff_fire        == nil then mod.settings.block_force_staff_fire        = true  end
 if mod.settings.block_warp_ability            == nil then mod.settings.block_warp_ability            = true  end
 if mod.settings.disable_with_crystalline_will == nil then mod.settings.disable_with_crystalline_will = true  end
@@ -138,18 +140,89 @@ end
 
 local is_in_hub = false
 
+-- Cached on lifecycle hooks (DMF fires both during cold start + on every state
+-- transition). Default false: stay disengaged until the local player is
+-- confirmed Psyker. Gates the input hook, mod.update, and the HUD element's
+-- validation_function so non-Psyker characters pay effectively zero per-frame
+-- cost — no extension walks, no HUD widget instantiation.
+local is_local_player_psyker = false
+
 local function check_is_in_hub()
 	local game_mode_manager = Managers.state and Managers.state.game_mode
 	local game_mode_name = game_mode_manager and game_mode_manager:game_mode_name()
 	return game_mode_name == "hub"
 end
 
+-- IMPORTANT: use :local_player_safe(1), NOT :local_player(1). The unsafe
+-- variant calls Network.peer_id() unconditionally; at title screen / pre-
+-- session there's no peer id and the C-side peer_id() derefs NULL → engine
+-- access violation. local_player_safe guards on Managers.connection being
+-- initialized and returns nil otherwise — exactly what we want.
+--
+-- DO NOT detect class via `unit_data:read_component("warp_charge")`. That
+-- component is present on every Imperium player unit (Vet, Zealot, Ogryn,
+-- Psyker) — verified empirically when our cache flipped to true for a
+-- Veteran 18ms after spawn as the component finished registering. Use
+-- the canonical archetype check that `action_psyker_push` itself uses.
+local function check_is_local_player_psyker()
+	local player_manager = Managers.player
+	local player = player_manager and player_manager:local_player_safe(1)
+	local unit = player and player.player_unit
+	if not unit or not Unit.alive(unit) then return false end
+	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
+	if not unit_data or not unit_data.archetype then return false end
+	local archetype = unit_data:archetype()
+	return archetype and archetype.name == "psyker"
+end
+
+-- Engine `assign_player_unit_ownership` fires from `PlayerUnitSpawnManager`
+-- AFTER `player.player_unit = unit` is set and all extensions are live, on
+-- both server and client. This is the only signal that reliably catches
+-- character swaps that bypass the hub (e.g. SoloPlay-style direct re-entry
+-- into Psykhanium after picking a different class) — game_state_changed
+-- alone fires before the new player_unit is in place. Counterpart
+-- `player_unit_despawned` flips us back off so the cache doesn't lie about
+-- a stale unit during the between-missions gap. The mod stays subscribed
+-- for the whole game session; EventManager has no per-state teardown.
+local event_subscriber = {}
+
+-- We don't filter by identity on the event arg — in solo training and
+-- some character-swap paths, `local_player_safe(1)` returned nil or a
+-- stale Player object, so the identity check silently swallowed the real
+-- update. Recomputing from authoritative state (Managers.player →
+-- local_player_safe → player.player_unit → warp_charge component) is
+-- robust against whichever player the event is for, since
+-- check_is_local_player_psyker always looks at the LOCAL player.
+event_subscriber.on_assign_player_unit_ownership = function(self, player, unit)
+	is_local_player_psyker = check_is_local_player_psyker()
+end
+
+event_subscriber.on_player_unit_despawned = function(self, player)
+	is_local_player_psyker = check_is_local_player_psyker()
+end
+
+local function ensure_event_subscriptions()
+	local event_manager = Managers.event
+	if not event_manager then return end
+	-- Unregister-then-register is idempotent on EventManager (unregister no-ops
+	-- if not present), so we can call this freely on lifecycle hooks without
+	-- ending up with duplicate callbacks.
+	event_manager:unregister(event_subscriber, "assign_player_unit_ownership")
+	event_manager:register(event_subscriber, "assign_player_unit_ownership", "on_assign_player_unit_ownership")
+	event_manager:unregister(event_subscriber, "player_unit_despawned")
+	event_manager:register(event_subscriber, "player_unit_despawned", "on_player_unit_despawned")
+end
+
 mod.on_game_state_changed = function(status, state_name)
 	is_in_hub = check_is_in_hub()
+	ensure_event_subscriptions()
+	is_local_player_psyker = check_is_local_player_psyker()
 end
 
 mod.on_all_mods_loaded = function()
 	is_in_hub = check_is_in_hub()
+	ensure_event_subscriptions()
+	is_local_player_psyker = check_is_local_player_psyker()
 end
 
 -- Warp Unbound (talent that powers up Scrier's Gaze) grants the buff
@@ -286,6 +359,16 @@ local function is_force_sword(weapon_name)
 	return weapon_name ~= "" and string_find(weapon_name, "forcesword", 1, true) ~= nil
 end
 
+-- Both laspistol templates (laspistol_p1_m1, laspistol_p1_m3) define an
+-- `action_psyker_push` branch selected only when the wielder is a Psyker
+-- (`archetype.name == "psyker"`). That branch generates peril; the standard
+-- `action_normal_push` served to other archetypes does not. Substring match
+-- on `laspistol` covers both current variants and any future laspistol
+-- Fatshark adds with the same dual-push template structure.
+local function is_laspistol(weapon_name)
+	return weapon_name ~= "" and string_find(weapon_name, "laspistol", 1, true) ~= nil
+end
+
 -- Tracks whether the player is currently holding RMB (block stance). The
 -- basic push (RMB + LMB) is free. The push *attack* is the follow-up swing
 -- — `action_one_pressed` again while RMB is still held, within the combat
@@ -334,8 +417,9 @@ local function should_block(action_name)
 	local settings = mod.settings
 	local base = settings.peril_threshold
 
-	if settings.block_force_sword and BLOCKED_INPUTS_WEAPON_EXTRA[action_name] then
-		return peril >= base
+	if BLOCKED_INPUTS_WEAPON_EXTRA[action_name] then
+		if settings.block_force_sword   and is_force_sword(weapon_name)   then return peril >= base end
+		if settings.block_laspistol_push and is_laspistol(weapon_name)    then return peril >= base end
 	end
 
 	-- LMB cases: force-staff fire OR an ability-as-weapon being cast (Brain
@@ -350,7 +434,7 @@ local function should_block(action_name)
 			if settings.debug_dump and action_name == "action_one_pressed" then
 				local remaining = get_vent_cooldown_remaining()
 				debug_log(string.format(
-					"[WitchLeash] force-staff-fire weapon=%s allow=%s inferno=%s vent_match=%s combat=%s cooldown=%s duration=%s peril=%.3f",
+					"[KeepYourHead] force-staff-fire weapon=%s allow=%s inferno=%s vent_match=%s combat=%s cooldown=%s duration=%s peril=%.3f",
 					weapon_name,
 					tostring(settings.allow_inferno_fire_with_vent == true),
 					tostring(is_inferno_staff(weapon_name) == true),
@@ -455,7 +539,7 @@ local function maybe_dump_debug(action_name, pressed)
 	local peril, weapon_name, combat_ability, grenade_ability = read_local_psyker_state()
 	if not peril then return end
 	debug_log(string.format(
-		"[WitchLeash] action=%s peril=%.3f weapon=%s combat=%s grenade=%s",
+		"[KeepYourHead] action=%s peril=%.3f weapon=%s combat=%s grenade=%s",
 		action_name,
 		peril,
 		weapon_name ~= "" and weapon_name or "<none>",
@@ -477,6 +561,10 @@ local function input_hook(func, self, action_name)
 		end
 		is_blocking_with_rmb = now_blocking
 	end
+	-- Non-Psyker short-circuit: bail before any extension reads or should_block
+	-- work. Stance tracking above stays current so a mid-session swap into a
+	-- Psyker character has correct push-attack chain state on the next input.
+	if not is_local_player_psyker then return out end
 	-- Skip the pressed-derivation entirely when debug dump is off (the hot
 	-- path for normal play). When on, derive once and reuse out_type for the
 	-- return-value coercion so we don't call type(out) twice.
@@ -524,8 +612,8 @@ mod:hook("InputService", "_get", input_hook)
 mod:hook("InputService", "_get_simulate", input_hook)
 
 mod:register_hud_element({
-	class_name = "HudElementWitchLeashWarning",
-	filename = "WitchLeash/scripts/mods/WitchLeash/HudElementWitchLeashWarning",
+	class_name = "HudElementKeepYourHeadWarning",
+	filename = "KeepYourHead/scripts/mods/KeepYourHead/HudElementKeepYourHeadWarning",
 	use_hud_scale = true,
 	visibility_groups = {
 		"alive",
@@ -533,7 +621,8 @@ mod:register_hud_element({
 	validation_function = function(params)
 		local game_mode_manager = Managers.state and Managers.state.game_mode
 		local game_mode_name = game_mode_manager and game_mode_manager:game_mode_name()
-		return game_mode_name ~= "hub"
+		if game_mode_name == "hub" then return false end
+		return check_is_local_player_psyker()
 	end,
 })
 
@@ -542,10 +631,11 @@ mod:register_hud_element({
 -- manager's HUD and toggle its widget visibility. No-ops if the HUD or element
 -- isn't up yet (e.g. during the initial mission load).
 mod.update = function(dt)
+	if not is_local_player_psyker then return end
 	local ui_manager = Managers.ui
 	local hud = ui_manager and ui_manager.get_hud and ui_manager:get_hud()
 	if not hud then return end
-	local element = hud:element("HudElementWitchLeashWarning")
+	local element = hud:element("HudElementKeepYourHeadWarning")
 	if not element or not element.set_active then return end
 	element:set_active(mod.is_warning_active())
 	if element.set_offset then

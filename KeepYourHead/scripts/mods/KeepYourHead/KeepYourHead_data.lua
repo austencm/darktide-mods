@@ -1,4 +1,4 @@
-local mod = get_mod("WitchLeash")
+local mod = get_mod("KeepYourHead")
 
 return {
 	name = mod:localize("mod_name"),
@@ -22,6 +22,11 @@ return {
 				sub_widgets = {
 					{
 						setting_id    = "block_force_sword",
+						type          = "checkbox",
+						default_value = true,
+					},
+					{
+						setting_id    = "block_laspistol_push",
 						type          = "checkbox",
 						default_value = true,
 					},
