@@ -34,4 +34,9 @@ return {
         en = "Sent flying \xe2\x89\xa51.5s or \xe2\x89\xa512m by an explosion. "
             .. "Use [airtime] and [distance] in the message.",
     },
+    debug = { en = "Debug" },
+    enable_debug_mode = { en = "Enable debug output" },
+    enable_debug_mode_desc = {
+        en = "Echoes event scheduling, cancellations, and dispatch decisions to local chat. Verbose; OFF by default.",
+    },
 }

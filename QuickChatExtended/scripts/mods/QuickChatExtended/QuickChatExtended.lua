@@ -36,6 +36,18 @@ local DISABLED_STATES = {
 }
 
 -- ##################################################
+-- Debug
+-- ##################################################
+
+-- Echo a single line to local chat when "enable_debug_mode" is on. Used
+-- throughout to trace scheduling, cancellations, and dispatch decisions.
+local function _debug(msg)
+    if mod:get("enable_debug_mode") then
+        mod:echo("[QCE] " .. tostring(msg))
+    end
+end
+
+-- ##################################################
 -- Cross-mod integration
 -- ##################################################
 
@@ -115,10 +127,14 @@ local function _schedule_disabled(state_key, event_id)
         event_id  = event_id,
         fire_time = t + DISABLED_FIRE_DELAY,
     }
+    _debug("scheduled " .. event_id .. " in " .. DISABLED_FIRE_DELAY .. "s")
 end
 
 local function _cancel_disabled(state_key)
-    mod._pending_disabled[state_key] = nil
+    if mod._pending_disabled[state_key] then
+        _debug("cancelled " .. mod._pending_disabled[state_key].event_id .. " (rescued)")
+        mod._pending_disabled[state_key] = nil
+    end
 end
 
 mod.update = function(dt)
@@ -126,6 +142,7 @@ mod.update = function(dt)
     if not t then return end
     for state_key, pending in pairs(mod._pending_disabled) do
         if t >= pending.fire_time then
+            _debug("firing " .. pending.event_id)
             _dispatch_disabled(pending.event_id)
             mod._pending_disabled[state_key] = nil
         end
@@ -154,6 +171,7 @@ mod:hook_safe("HudElementSmartTagging", "_add_smart_tag_presentation", function(
     local breed_name = breed and breed.name
     if breed_name ~= "chaos_daemonhost" then return end
 
+    _debug("daemonhost tagged")
     _send("auto_tagged_daemonhost", "tag_daemonhost")
 end)
 
@@ -169,6 +187,7 @@ mod:hook_safe("ActionOverloadExplosion", "_explode", function(self, action_setti
     if not player then return end
 
     if player == Managers.player:local_player(1) then
+        _debug("psyker exploded: self")
         _send("auto_psyker_exploded_self", "psyker_explode")
     else
         -- Read enable_slot_color from quick_chat directly — it's a global
@@ -178,6 +197,7 @@ mod:hook_safe("ActionOverloadExplosion", "_explode", function(self, action_setti
         local slot_color = qc and qc:get("enable_slot_color")
             and player:slot()
             and UISettings.player_slot_colors[player:slot()]
+        _debug("psyker exploded: teammate=" .. tostring(player:name()))
         _send("auto_psyker_exploded_teammate", "psyker_explode", player:name(), slot_color)
     end
 end)
@@ -208,9 +228,11 @@ mod:hook_safe("PlayerCharacterStateCatapulted", "on_enter",
     function(self, unit, dt, t, previous_state, params)
         if not _is_local_player(unit) then return end
         if GRAB_PREVIOUS_STATES[previous_state] then
+            _debug("catapult skipped: previous=" .. tostring(previous_state))
             mod._catapult_start = nil
             return
         end
+        _debug("catapult start (previous=" .. tostring(previous_state) .. ")")
         mod._catapult_start = {
             time = t,
             pos  = Vector3Box(Unit.local_position(unit, 1)),
@@ -229,9 +251,13 @@ mod:hook_safe("PlayerCharacterStateCatapulted", "on_exit",
         local distance = Vector3.distance(start.pos:unbox(), end_pos)
 
         if airtime < CATAPULT_MIN_AIRTIME and distance < CATAPULT_MIN_DISTANCE then
-            return  -- not spectacular enough
+            _debug(string.format("catapult below threshold: airtime=%.1f distance=%.0f",
+                airtime, distance))
+            return
         end
 
+        _debug(string.format("catapult firing: airtime=%.1f distance=%.0f",
+            airtime, distance))
         mod._send_context = {
             airtime  = string.format("%.1f", airtime),
             distance = string.format("%.0f", distance),

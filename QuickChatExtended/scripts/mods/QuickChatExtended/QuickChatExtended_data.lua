@@ -69,6 +69,18 @@ return {
                 type = "group",
                 sub_widgets = _event_widgets(),
             },
+            {
+                setting_id = "debug",
+                type = "group",
+                sub_widgets = {
+                    {
+                        setting_id = "enable_debug_mode",
+                        type = "checkbox",
+                        default_value = false,
+                        tooltip = "enable_debug_mode_desc",
+                    },
+                },
+            },
         },
     },
 }
