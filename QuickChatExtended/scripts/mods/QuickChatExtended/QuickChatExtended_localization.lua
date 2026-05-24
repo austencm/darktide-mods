@@ -1,17 +1,16 @@
 return {
-    mod_name = { en = "QuickChatExtended" },
-    mod_description = { en = "Adds Daemonhost and Psyker-exploded auto-events to quick_chat." },
+    mod_name = { en = "Quick Chat Extended" },
+    mod_description = { en = "Additional events for Quick Chat." },
     enabled = { en = "Enabled" },
+    events = { en = "Events" },
     auto_tagged_daemonhost = { en = "Tagged Daemonhost → preset" },
     auto_tagged_daemonhost_desc = {
-        en = "Pick a quick_chat preset that fires when you tag a Daemonhost. Cooldown: 30s.",
+        en = "Pick a Quick Chat preset that fires when you tag a Daemonhost. Cooldown: 30s.",
     },
-    auto_psyker_exploded_self = { en = "Psyker head-popped (you) → preset" },
-    auto_psyker_exploded_self_desc = { en = "Pick a preset that fires when your Psyker's head explodes from peril." },
-    auto_psyker_exploded_teammate = { en = "Psyker head-popped (teammate) → preset" },
+    auto_psyker_exploded_self = { en = "Psyker head-pop (you)" },
+    auto_psyker_exploded_self_desc = { en = "When your head explodes from peril." },
+    auto_psyker_exploded_teammate = { en = "Psyker head-pop (teammate)" },
     auto_psyker_exploded_teammate_desc = {
-        en = "Pick a preset that fires when a teammate Psyker's head explodes. Their name fills [name].",
+        en = "When a teammate's head explodes.",
     },
-    enable_slot_color = { en = "Color teammate names by slot" },
-    enable_slot_color_desc = { en = "Wraps [name] in the player's slot color (matches the squad UI colors)." },
 }

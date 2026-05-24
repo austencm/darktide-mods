@@ -68,7 +68,11 @@ mod:hook_safe("ActionOverloadExplosion", "_explode", function(self, action_setti
     if player == Managers.player:local_player(1) then
         _send("auto_psyker_exploded_self", "psyker_explode")
     else
-        local slot_color = mod:get("enable_slot_color")
+        -- Read enable_slot_color from quick_chat directly — it's a global
+        -- "color teammate names" preference users set in one place rather
+        -- than per-mod.
+        local qc = get_mod("quick_chat")
+        local slot_color = qc and qc:get("enable_slot_color")
             and player:slot()
             and UISettings.player_slot_colors[player:slot()]
         _send("auto_psyker_exploded_teammate", "psyker_explode", player:name(), slot_color)

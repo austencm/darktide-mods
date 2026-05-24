@@ -1,18 +1,49 @@
 local mod = get_mod("QuickChatExtended")
 
+-- Event ids QuickChatExtended dispatches. Each generates an
+-- "auto_<event>" dropdown widget bound to a quick_chat preset.
+-- Add a new entry here to get a new dropdown widget; the dispatcher in
+-- QuickChatExtended.lua must call _send("auto_<event>", ...) to match.
+local events = {
+    "tagged_daemonhost",
+    "psyker_exploded_self",
+    "psyker_exploded_teammate",
+}
+
 -- Build preset dropdown options from quick_chat's _messages table at our
 -- mod-load time. quick_chat loads first (hard dep), so _messages is
 -- populated. QuickChatPresets may have already pushed into it.
 local function _preset_dropdown_options()
-    local options = { { text = "none", value = "none" } }
+    -- localize = false on the options table tells DMF the `text` fields are
+    -- already display-ready strings, not locale keys. Without it, DMF runs
+    -- mod:localize on each text and wraps unknown keys in "<...>" markers.
+    local options = {
+        localize = false,
+        { text = "none", value = "none" },
+    }
     local qc = get_mod("quick_chat")
     if not qc or not qc._messages then
         return options
     end
     for _, setting in ipairs(qc._messages) do
-        options[#options + 1] = { text = setting.id, value = setting.id }
+        options[#options + 1] = { text = setting.title or setting.id, value = setting.id }
     end
     return options
+end
+
+local function _event_widgets()
+    local widgets = {}
+    for _, event in ipairs(events) do
+        local id = "auto_" .. event
+        widgets[#widgets + 1] = {
+            setting_id = id,
+            type = "dropdown",
+            default_value = "none",
+            tooltip = id .. "_desc",
+            options = _preset_dropdown_options(),
+        }
+    end
+    return widgets
 end
 
 return {
@@ -23,31 +54,9 @@ return {
     options = {
         widgets = {
             {
-                setting_id = "auto_tagged_daemonhost",
-                type = "dropdown",
-                default_value = "none",
-                tooltip = "auto_tagged_daemonhost_desc",
-                options = _preset_dropdown_options(),
-            },
-            {
-                setting_id = "auto_psyker_exploded_self",
-                type = "dropdown",
-                default_value = "none",
-                tooltip = "auto_psyker_exploded_self_desc",
-                options = _preset_dropdown_options(),
-            },
-            {
-                setting_id = "auto_psyker_exploded_teammate",
-                type = "dropdown",
-                default_value = "none",
-                tooltip = "auto_psyker_exploded_teammate_desc",
-                options = _preset_dropdown_options(),
-            },
-            {
-                setting_id = "enable_slot_color",
-                type = "checkbox",
-                default_value = false,
-                tooltip = "enable_slot_color_desc",
+                setting_id = "events",
+                type = "group",
+                sub_widgets = _event_widgets(),
             },
         },
     },
