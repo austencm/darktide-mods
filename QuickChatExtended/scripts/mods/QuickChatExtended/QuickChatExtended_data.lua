@@ -5,9 +5,20 @@ local mod = get_mod("QuickChatExtended")
 -- Add a new entry here to get a new dropdown widget; the dispatcher in
 -- QuickChatExtended.lua must call _send("auto_<event>", ...) to match.
 local events = {
+    -- Combat events
     "tagged_daemonhost",
     "psyker_exploded_self",
     "psyker_exploded_teammate",
+    -- Player-disabled events (3s rescue grace window, shared cooldown)
+    "player_knocked_down",
+    "player_ledge_hanging",
+    "player_netted",
+    "player_pounced",
+    "player_consumed",
+    "player_warp_grabbed",
+    "player_vortex_grabbed",
+    "player_disabled",      -- generic fallback when specific is "none"
+    "player_catapulted",    -- explosion-flight, supports [airtime] / [distance]
 }
 
 -- Build preset dropdown options from quick_chat's _messages table at our

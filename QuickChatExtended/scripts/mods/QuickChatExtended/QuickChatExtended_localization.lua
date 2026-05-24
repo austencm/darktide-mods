@@ -3,7 +3,7 @@ return {
     mod_description = { en = "Additional events for Quick Chat." },
     enabled = { en = "Enabled" },
     events = { en = "Events" },
-    auto_tagged_daemonhost = { en = "Tagged Daemonhost → preset" },
+    auto_tagged_daemonhost = { en = "Tagged Daemonhost" },
     auto_tagged_daemonhost_desc = {
         en = "Pick a Quick Chat preset that fires when you tag a Daemonhost. Cooldown: 30s.",
     },
@@ -12,5 +12,26 @@ return {
     auto_psyker_exploded_teammate = { en = "Psyker head-pop (teammate)" },
     auto_psyker_exploded_teammate_desc = {
         en = "When a teammate's head explodes.",
+    },
+    auto_player_knocked_down = { en = "Knocked down" },
+    auto_player_knocked_down_desc = { en = "When you've been down 3+ seconds and need a pickup." },
+    auto_player_ledge_hanging = { en = "Hanging from ledge" },
+    auto_player_ledge_hanging_desc = { en = "When you've been hanging 3+ seconds." },
+    auto_player_netted = { en = "Netted (Trapper)" },
+    auto_player_netted_desc = { en = "When you've been netted 3+ seconds." },
+    auto_player_pounced = { en = "Pounced (Pox Hound)" },
+    auto_player_pounced_desc = { en = "When you've been pounced 3+ seconds." },
+    auto_player_consumed = { en = "Inside Beast of Nurgle" },
+    auto_player_consumed_desc = { en = "When you've been swallowed 3+ seconds." },
+    auto_player_warp_grabbed = { en = "Grabbed (Daemonhost)" },
+    auto_player_warp_grabbed_desc = { en = "When a Daemonhost has held you 3+ seconds." },
+    auto_player_vortex_grabbed = { en = "Caught in vortex" },
+    auto_player_vortex_grabbed_desc = { en = "When a boss vortex has caught you 3+ seconds." },
+    auto_player_disabled = { en = "Disabled (fallback)" },
+    auto_player_disabled_desc = { en = "Fires when no specific disable preset is set." },
+    auto_player_catapulted = { en = "Catapulted by explosion" },
+    auto_player_catapulted_desc = {
+        en = "Sent flying \xe2\x89\xa51.5s or \xe2\x89\xa512m by an explosion. "
+            .. "Use [airtime] and [distance] in the message.",
     },
 }
