@@ -59,10 +59,13 @@ mod.on_all_mods_loaded = function()
     if not qc then return end
 
     if qc._cooldown then
-        qc._cooldown.tag_daemonhost  = qc._cooldown.tag_daemonhost  or 30
-        qc._cooldown.psyker_explode  = qc._cooldown.psyker_explode  or 5
-        qc._cooldown.player_disabled = qc._cooldown.player_disabled or 30
-        qc._cooldown.catapulted      = qc._cooldown.catapulted      or 30
+        -- Direct assignment (not `or N`) so hot-reload picks up tweaks
+        -- without restarting. These keys are introduced by QCE; no other
+        -- mod sets them.
+        qc._cooldown.tag_daemonhost  = 30
+        qc._cooldown.psyker_explode  = 5
+        qc._cooldown.player_disabled = 10  -- shared by all disabled events
+        qc._cooldown.catapulted      = 30
     end
 
     if qc._replace_place_holder and not qc._quick_chat_extended_patched then
@@ -107,12 +110,35 @@ end
 -- generic "auto_player_disabled" if the specific one is unset.
 local function _dispatch_disabled(event_id)
     local preset_id = mod:get(event_id)
+    local fell_back = false
     if not preset_id or preset_id == "none" then
         preset_id = mod:get("auto_player_disabled")
+        fell_back = preset_id and preset_id ~= "none"
     end
-    if not preset_id or preset_id == "none" then return end
+    if not preset_id or preset_id == "none" then
+        _debug("suppressed " .. event_id .. ": no preset set")
+        return
+    end
+    if fell_back then
+        _debug("dispatch " .. event_id .. " -> generic fallback")
+    end
     local qc = get_mod("quick_chat")
     if not qc or not qc.send_preset_message then return end
+
+    -- send_preset_message will silently no-op if the "player_disabled"
+    -- cooldown is still active. Compute that ourselves for debug visibility.
+    if qc._cooldown and qc._latest_t and Managers.time then
+        local cooldown = qc._cooldown.player_disabled
+        local last_t  = qc._latest_t.player_disabled
+        local t       = Managers.time:time("main")
+        if cooldown and last_t and t and (t - last_t) < cooldown then
+            local remaining = cooldown - (t - last_t)
+            _debug(string.format("suppressed %s: %.1fs cooldown remaining",
+                event_id, remaining))
+            return
+        end
+    end
+
     qc.send_preset_message(preset_id, "player_disabled")
 end
 
