@@ -8,7 +8,7 @@ local UISettings = require("scripts/settings/ui/ui_settings")
 
 -- Seconds a player must remain in a disabled state before the auto-event
 -- fires. Gives teammates a chance to rescue silently.
-local DISABLED_FIRE_DELAY = 3
+local DISABLED_FIRE_DELAY = 5
 
 -- Catapulted "spectacular flight" thresholds. Fires if EITHER bound is hit.
 local CATAPULT_MIN_AIRTIME  = 1.5
@@ -164,6 +164,24 @@ local function _cancel_disabled(state_key)
 end
 
 mod.update = function(dt)
+    -- Cancel pending events if a teammate has started reviving us.
+    -- interactee_component.interactor_unit is non-nil from the moment they
+    -- begin the interaction, before it completes. Avoids alerting chat
+    -- when help is already underway. (Only meaningful for revivable states
+    -- like knocked_down / ledge_hanging; netted / pounced / consumed are
+    -- rescued by killing the disabler, not by interacting with the player.)
+    local player_mgr = Managers.player
+    local player = player_mgr and player_mgr:local_player_safe(1)
+    local local_unit = player and player.player_unit
+    local unit_data = local_unit and ScriptUnit.has_extension(local_unit, "unit_data_system")
+    local interactee = unit_data and unit_data:read_component("interactee")
+    if interactee and interactee.interactor_unit then
+        for state_key, pending in pairs(mod._pending_disabled) do
+            _debug("cancelled " .. pending.event_id .. " (revive started)")
+            mod._pending_disabled[state_key] = nil
+        end
+    end
+
     local t = Managers.time and Managers.time:time("main")
     if not t then return end
     for state_key, pending in pairs(mod._pending_disabled) do
