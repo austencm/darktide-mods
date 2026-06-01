@@ -19,4 +19,18 @@ return {
     list_icons_hotkey_desc = { en = "Echoes every named icon from icons.lua with section headers and its glyph." },
     list_colors_hotkey = { en = "List named colors" },
     list_colors_hotkey_desc = { en = "Echoes every named color with a wrapped sample so you can preview the palette." },
+    -- Default-chat-color dropdown option labels.
+    color_none    = { en = "None" },
+    color_white   = { en = "White" },
+    color_gold    = { en = "Gold" },
+    color_cyan    = { en = "Cyan" },
+    color_red     = { en = "Red" },
+    color_crimson = { en = "Crimson" },
+    color_amber   = { en = "Amber" },
+    color_purple  = { en = "Purple" },
+    color_lime    = { en = "Lime" },
+    color_blue    = { en = "Blue" },
+    color_brass   = { en = "Brass" },
+    color_pink    = { en = "Pink" },
+    color_green   = { en = "Green" },
 }

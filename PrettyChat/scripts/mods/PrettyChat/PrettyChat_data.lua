@@ -7,7 +7,13 @@ local mod = get_mod("PrettyChat")
 local colors = mod:io_dofile("PrettyChat/scripts/mods/PrettyChat/colors")
 
 local function _color_dropdown_options()
-    local options = { { text = "none", value = "none" } }
+    -- localize = false: option texts are already display-ready (markup-wrapped
+    -- and pre-localized via mod:localize below). Without this, DMF would run
+    -- mod:localize on the wrapped strings as keys and wrap them in "<...>".
+    local options = {
+        localize = false,
+        { text = mod:localize("color_none"), value = "none" },
+    }
     local names = {}
     for name, _ in pairs(colors) do
         names[#names + 1] = name
@@ -15,8 +21,9 @@ local function _color_dropdown_options()
     table.sort(names)
     for _, name in ipairs(names) do
         local rgba = colors[name]
+        local label = mod:localize("color_" .. name)
         local display = string.format("{#color(%d,%d,%d)}%s{#reset()}",
-            rgba[2], rgba[3], rgba[4], name)
+            rgba[2], rgba[3], rgba[4], label)
         options[#options + 1] = { text = display, value = name }
     end
     return options
