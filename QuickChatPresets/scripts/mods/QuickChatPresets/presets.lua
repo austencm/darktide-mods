@@ -1,4 +1,4 @@
---[[
+ --[[
     presets.lua — Personal quick_chat preset list.
 
     This table is returned by QuickChatPresets and injected into quick_chat
