@@ -17,3 +17,8 @@ __pycache__/
 
 # Claude Code per-user settings (machine-specific paths)
 .claude/settings.local.json
+
+# Per-user Lua overrides. Convention: foo.local.lua sits next to
+# foo.default.lua (which IS tracked). Used by QuickChatExtended for
+# messages.default.lua / messages.local.lua.
+*.local.lua

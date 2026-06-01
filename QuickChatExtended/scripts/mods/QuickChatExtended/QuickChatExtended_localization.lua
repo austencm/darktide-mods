@@ -25,8 +25,6 @@ return {
     auto_player_consumed_desc = { en = "When you've been swallowed 5+ seconds." },
     auto_player_warp_grabbed = { en = "Grabbed (Daemonhost)" },
     auto_player_warp_grabbed_desc = { en = "When a Daemonhost has held you 5+ seconds." },
-    auto_player_vortex_grabbed = { en = "Caught in vortex" },
-    auto_player_vortex_grabbed_desc = { en = "When a boss vortex has caught you 5+ seconds." },
     auto_player_disabled = { en = "Disabled (fallback)" },
     auto_player_disabled_desc = { en = "Fires when no specific disable preset is set." },
     auto_player_catapulted = { en = "Catapulted by explosion" },

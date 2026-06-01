@@ -18,7 +18,6 @@ local CATAPULT_MIN_DISTANCE = 12
 -- slam, daemonhost release, etc.), not explosions. Skip those.
 local GRAB_PREVIOUS_STATES = {
     mutant_charged = true,
-    vortex_grabbed = true,
     warp_grabbed   = true,
     grabbed        = true,
     hogtied        = true,
@@ -32,7 +31,6 @@ local DISABLED_STATES = {
     PlayerCharacterStatePounced       = "auto_player_pounced",
     PlayerCharacterStateConsumed      = "auto_player_consumed",
     PlayerCharacterStateWarpGrabbed   = "auto_player_warp_grabbed",
-    PlayerCharacterStateVortexGrabbed = "auto_player_vortex_grabbed",
 }
 
 -- ##################################################

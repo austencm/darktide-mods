@@ -1,5 +1,65 @@
 local mod = get_mod("QuickChatExtended")
 
+-- ##################################################
+-- Default messages append
+-- ##################################################
+--
+-- QCE ships default presets for the events it dispatches (messages.default.lua,
+-- tracked). Users can customize without losing edits on QCE updates by
+-- creating messages.local.lua next to it.
+--
+-- Conflict policy:
+--   - messages.local.lua exists -> user-wins on id conflict with
+--     quick_chat._messages (and overlays QCP if present)
+--   - only messages.default.lua -> polite append (skip ids already in
+--     quick_chat._messages)
+--
+-- Runs as a side effect at mod_data eval time so the dropdown widget
+-- options below see the newly-merged messages. Putting it in
+-- on_all_mods_loaded would be too late — DMF would have already built
+-- the widget data by then.
+
+local function _user_messages_exist()
+    local _io = Mods and Mods.lua and Mods.lua.io
+    if not (_io and _io.open) then return false end
+    local f = _io.open(
+        "./../mods/QuickChatExtended/scripts/mods/QuickChatExtended/messages.local.lua", "r")
+    if f then f:close(); return true end
+    return false
+end
+
+local function _merge_messages()
+    local qc = get_mod("quick_chat")
+    if not qc or not qc._messages then return end
+
+    local is_user_customized = _user_messages_exist()
+    local module_path = is_user_customized
+        and "QuickChatExtended/scripts/mods/QuickChatExtended/messages.local"
+        or "QuickChatExtended/scripts/mods/QuickChatExtended/messages.default"
+    local messages = mod:io_dofile(module_path)
+    if not messages then return end
+
+    for _, preset in ipairs(messages) do
+        local existing_idx
+        for i, existing in ipairs(qc._messages) do
+            if existing.id == preset.id then
+                existing_idx = i
+                break
+            end
+        end
+        if existing_idx then
+            if is_user_customized then
+                qc._messages[existing_idx] = preset  -- user-wins
+            end
+            -- else: leave existing entry alone
+        else
+            qc._messages[#qc._messages + 1] = preset
+        end
+    end
+end
+
+_merge_messages()
+
 -- Event ids QuickChatExtended dispatches. Each generates an
 -- "auto_<event>" dropdown widget bound to a quick_chat preset.
 -- Add a new entry here to get a new dropdown widget; the dispatcher in
@@ -9,14 +69,13 @@ local events = {
     "tagged_daemonhost",
     "psyker_exploded_self",
     "psyker_exploded_teammate",
-    -- Player-disabled events (3s rescue grace window, shared cooldown)
+    -- Player-disabled events (5s rescue grace window, shared cooldown)
     "player_knocked_down",
     "player_ledge_hanging",
     "player_netted",
     "player_pounced",
     "player_consumed",
     "player_warp_grabbed",
-    "player_vortex_grabbed",
     "player_disabled",      -- generic fallback when specific is "none"
     "player_catapulted",    -- explosion-flight, supports [airtime] / [distance]
 }
