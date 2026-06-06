@@ -18,7 +18,6 @@ return {
         id = "psyker_explode_self",
         title = "Psyker explode (self)",
         message = {
-            "It has been [red]0[/] days without a brain incident.",
             "[pink]The voices…[/]",
         }
     },
@@ -26,12 +25,13 @@ return {
         id = "alert_daemonhost",
         title = "Daemonhost",
         message = {
-            "[lime]Daemonhost![/]",
-            "[lime]I sense a Daemonhost![/]",
-            "[lime]I think I hear a Daemonhost?[/]",
-            "[lime]Oh hel…it's a Daemonhost![/]",
-            "[lime]Stay alert! A Daemonhost![/]",
-            "[lime]Throne…it's a fragging Daemonhost![/]",
+            "[nurgle]Daemonhost![/]",
+            "[nurgle]I sense a Daemonhost![/]",
+            "[nurgle]Is that a Daemonhost?[/]",
+            "[nurgle]I think I hear a Daemonhost?[/]",
+            "[nurgle]Oh hel…it's a Daemonhost![/]",
+            "[nurgle]Stay alert! A Daemonhost![/]",
+            "[nurgle]Throne…it's a fragging Daemonhost![/]",
         }
     },
     {
@@ -62,7 +62,7 @@ return {
     {
         id = "deploy_med_self",
         title = "Deploy Med (self)",
-        message = ":xbox_dpad: Medi-pack deployed!"
+        message = "[green]:xbox_dpad:[/] Medi-pack deployed!"
     },
     {
         id = "deploy_med_others",
@@ -72,7 +72,7 @@ return {
     {
         id = "deploy_ammo_self",
         title = "Deploy Ammo (self)",
-        message = ":melkbucks: Ammo crate deployed!"
+        message = "[amber]:melkbucks:[/] Ammo crate deployed!"
     },
     {
         id = "deploy_ammo_others",
@@ -83,5 +83,12 @@ return {
         id = "psyker_explode_count",
         title = "Psyker Explode Count",
         message = "This psyker's head has exploded :digit_1::digit_9: times."
+    },
+    {
+        id = "qce_consumed",
+        title = "Inside Beast of Nurgle",
+        message = {
+            "[yellow]*sad digesting noises*[/]",
+        },
     },
 }
