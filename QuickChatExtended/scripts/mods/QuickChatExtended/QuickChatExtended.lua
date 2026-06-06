@@ -23,14 +23,14 @@ local GRAB_PREVIOUS_STATES = {
     hogtied        = true,
 }
 
--- Character-state component state_name (snake_case) -> our event setting id.
-local DISABLED_STATE_NAMES = {
-    knocked_down  = "auto_player_knocked_down",
-    ledge_hanging = "auto_player_ledge_hanging",
-    netted        = "auto_player_netted",
-    pounced       = "auto_player_pounced",
-    consumed      = "auto_player_consumed",
-    warp_grabbed  = "auto_player_warp_grabbed",
+-- State class name -> our event setting id.
+local DISABLED_STATES = {
+    PlayerCharacterStateKnockedDown   = "auto_player_knocked_down",
+    PlayerCharacterStateLedgeHanging  = "auto_player_ledge_hanging",
+    PlayerCharacterStateNetted        = "auto_player_netted",
+    PlayerCharacterStatePounced       = "auto_player_pounced",
+    PlayerCharacterStateConsumed      = "auto_player_consumed",
+    PlayerCharacterStateWarpGrabbed   = "auto_player_warp_grabbed",
 }
 
 -- ##################################################
@@ -143,9 +143,6 @@ end
 -- Pending-fire tracking for the rescue-grace window. Cleared if the
 -- player exits the disabled state before the delay elapses.
 mod._pending_disabled = {}
-mod._last_player_state = nil
-mod._catapult_start = nil
-mod._send_context = nil
 
 local function _schedule_disabled(state_key, event_id)
     local t = Managers.time and Managers.time:time("main")
@@ -165,97 +162,17 @@ local function _cancel_disabled(state_key)
 end
 
 mod.update = function(dt)
-    local t = Managers.time and Managers.time:time("main")
-    if not t then return end
-
+    -- Cancel pending events if a teammate has started reviving us.
+    -- interactee_component.interactor_unit is non-nil from the moment they
+    -- begin the interaction, before it completes. Avoids alerting chat
+    -- when help is already underway. (Only meaningful for revivable states
+    -- like knocked_down / ledge_hanging; netted / pounced / consumed are
+    -- rescued by killing the disabler, not by interacting with the player.)
     local player_mgr = Managers.player
     local player = player_mgr and player_mgr:local_player_safe(1)
     local local_unit = player and player.player_unit
     local unit_data = local_unit and ScriptUnit.has_extension(local_unit, "unit_data_system")
-    if not unit_data then
-        -- No player unit (between missions, dead spectator window, etc.).
-        -- Drop transient state so we don't fire on stale data when next unit spawns.
-        mod._last_player_state = nil
-        mod._catapult_start = nil
-        return
-    end
-
-    -- ##############################################################
-    -- State transition detection (poll character_state component)
-    -- ##############################################################
-    --
-    -- Polling instead of hooking PlayerCharacterStateXxx classes — hooks
-    -- by string class name proved unreliable for character states (DMF's
-    -- deferred-class resolution can fail to re-attach on hot reload).
-    -- One component read per frame is cheap and 100% reliable.
-
-    local cs = unit_data:read_component("character_state")
-    local current = cs and cs.state_name
-    local previous = mod._last_player_state
-
-    if current ~= previous then
-        -- Cancel any pending event for the state we just left.
-        if previous and DISABLED_STATE_NAMES[previous] then
-            _cancel_disabled(previous)
-        end
-
-        -- Schedule for any disabled state we just entered.
-        if current and DISABLED_STATE_NAMES[current] then
-            _schedule_disabled(current, DISABLED_STATE_NAMES[current])
-        end
-
-        -- Catapult enter: snapshot start time/position, unless the catapult
-        -- is the airtime portion of an enemy-grab release (skip those).
-        if current == "catapulted" then
-            if GRAB_PREVIOUS_STATES[previous] then
-                _debug("catapult skipped: previous=" .. tostring(previous))
-                mod._catapult_start = nil
-            else
-                _debug("catapult start (previous=" .. tostring(previous) .. ")")
-                mod._catapult_start = {
-                    time = t,
-                    pos  = Vector3Box(Unit.local_position(local_unit, 1)),
-                }
-            end
-        end
-
-        -- Catapult exit: compute deltas, fire if any threshold hit.
-        if previous == "catapulted" then
-            local start = mod._catapult_start
-            if start then
-                mod._catapult_start = nil
-                local airtime  = t - start.time
-                local end_pos  = Unit.local_position(local_unit, 1)
-                local distance = Vector3.distance(start.pos:unbox(), end_pos)
-                if airtime < CATAPULT_MIN_AIRTIME and distance < CATAPULT_MIN_DISTANCE then
-                    _debug(string.format("catapult below threshold: airtime=%.1f distance=%.0f",
-                        airtime, distance))
-                else
-                    _debug(string.format("catapult firing: airtime=%.1f distance=%.0f",
-                        airtime, distance))
-                    mod._send_context = {
-                        airtime  = string.format("%.1f", airtime),
-                        distance = string.format("%.0f", distance),
-                    }
-                    _send("auto_player_catapulted", "catapulted")
-                    mod._send_context = nil
-                end
-            end
-        end
-
-        mod._last_player_state = current
-    end
-
-    -- ##############################################################
-    -- Revive cancel
-    -- ##############################################################
-    --
-    -- interactee_component.interactor_unit is non-nil from the moment a
-    -- teammate begins a revive interaction, before it completes. Cancels
-    -- pending events when help is already underway. Only meaningful for
-    -- revivable states (knocked_down, ledge_hanging); netted / pounced /
-    -- consumed are rescued by killing the disabler, not by interacting.
-    local interactee = unit_data:read_component("interactee")
+    local interactee = unit_data and unit_data:read_component("interactee")
     if interactee and interactee.interactor_unit then
         for state_key, pending in pairs(mod._pending_disabled) do
             _debug("cancelled " .. pending.event_id .. " (revive started)")
@@ -263,9 +180,8 @@ mod.update = function(dt)
         end
     end
 
-    -- ##############################################################
-    -- Timer check (fire pending after the grace window)
-    -- ##############################################################
+    local t = Managers.time and Managers.time:time("main")
+    if not t then return end
     for state_key, pending in pairs(mod._pending_disabled) do
         if t >= pending.fire_time then
             _debug("firing " .. pending.event_id)
@@ -328,5 +244,66 @@ mod:hook_safe("ActionOverloadExplosion", "_explode", function(self, action_setti
     end
 end)
 
--- Player-disabled and catapulted detection lives in mod.update above
--- (polling the character_state component). No state-class hooks here.
+-- ##################################################
+-- Player disabled (one hook pair per disabled state)
+-- ##################################################
+
+for class_name, event_id in pairs(DISABLED_STATES) do
+    mod:hook_safe(class_name, "on_enter", function(self, unit, dt, t, previous_state, params)
+        if not _is_local_player(unit) then return end
+        _schedule_disabled(class_name, event_id)
+    end)
+    mod:hook_safe(class_name, "on_exit", function(self, unit, t, next_state)
+        if not _is_local_player(unit) then return end
+        _cancel_disabled(class_name)
+    end)
+end
+
+-- ##################################################
+-- Catapulted by explosion (heuristic: previous state is not a grab)
+-- ##################################################
+
+mod._catapult_start = nil
+mod._send_context = nil
+
+mod:hook_safe("PlayerCharacterStateCatapulted", "on_enter",
+    function(self, unit, dt, t, previous_state, params)
+        if not _is_local_player(unit) then return end
+        if GRAB_PREVIOUS_STATES[previous_state] then
+            _debug("catapult skipped: previous=" .. tostring(previous_state))
+            mod._catapult_start = nil
+            return
+        end
+        _debug("catapult start (previous=" .. tostring(previous_state) .. ")")
+        mod._catapult_start = {
+            time = t,
+            pos  = Vector3Box(Unit.local_position(unit, 1)),
+        }
+    end)
+
+mod:hook_safe("PlayerCharacterStateCatapulted", "on_exit",
+    function(self, unit, t, next_state)
+        if not _is_local_player(unit) then return end
+        local start = mod._catapult_start
+        if not start then return end
+        mod._catapult_start = nil
+
+        local airtime  = t - start.time
+        local end_pos  = Unit.local_position(unit, 1)
+        local distance = Vector3.distance(start.pos:unbox(), end_pos)
+
+        if airtime < CATAPULT_MIN_AIRTIME and distance < CATAPULT_MIN_DISTANCE then
+            _debug(string.format("catapult below threshold: airtime=%.1f distance=%.0f",
+                airtime, distance))
+            return
+        end
+
+        _debug(string.format("catapult firing: airtime=%.1f distance=%.0f",
+            airtime, distance))
+        mod._send_context = {
+            airtime  = string.format("%.1f", airtime),
+            distance = string.format("%.0f", distance),
+        }
+        _send("auto_player_catapulted", "catapulted")
+        mod._send_context = nil
+    end)
