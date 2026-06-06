@@ -42,7 +42,7 @@ stds["DT"] = {
 			"sign", "degrees_to_radians", "sirp", "ease_pulse", "cartesian_to_polar", "ease_out_quad",
 			"easeOutCubic", "radian_lerp", "auto_lerp", "rand_utf8_string", "point_is_inside_oobb",
 		} },
-		"Crashify", "Keyboard", "Mouse", "Application", "Color", "Quaternion", "Vector3", "Vector2",
+		"Crashify", "Keyboard", "Mouse", "Application", "Color", "Quaternion", "Vector3", "Vector3Box", "Vector2",
 		"RESOLUTION_LOOKUP", "Managers", "Unit", "ScriptUnit", "get_mod",
 	},
 }

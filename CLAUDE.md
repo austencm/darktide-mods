@@ -57,7 +57,9 @@ For dynamic position, mutating `widget.offset[1]` and `widget.offset[2]` works w
 
 The `widget.style.icon.color` / `style.icon.visible` pattern works for **textures**, not text. Don't generalize.
 
-## Chat rendering (relevant for quick_chat)
+## Chat rendering (relevant for PrettyChat / QuickChatExtended / QuickChatPresets)
+
+Zombine's upstream `quick_chat` mod is installed from Nexus into the game's `mods/` folder rather than committed to this repo. The mods in this repo (PrettyChat, QuickChatExtended, QuickChatPresets) layer on top of it.
 
 **Chat font**: `proxima_nova_bold_masked` at size 16. Defined in `scripts/managers/ui/ui_font_settings.lua` (`chat_message`, `chat_notification` styles).
 
@@ -70,9 +72,9 @@ The `widget.style.icon.color` / `style.icon.visible` pattern works for **texture
 
 **Markup tags rendered by chat**: only `{#color(r,g,b,a)}` and `{#reset()}`. The slug renderer parses `{#size(N)}` too, but in *chat* it doesn't visibly take effect (verified empirically — chat widgets pre-measure at the widget's `font_size = 16` and the render param wins over inline size). Size markup *does* work in description/tooltip widgets — Enhanced_descriptions uses `{#size(17)}` there. Bold / italic / underline / font-swap tags don't exist. There is **no `{#icon(...)}` tag** — to render an icon, paste the literal PUA codepoint and let the font chain fall through.
 
-**Chat input strips `{#…}` tags** from typed text (via `gsub(text, "{#.-}", "")` in `constant_element_chat.lua` ~line 1031), so to inject markup into typed messages you have to wrap `Managers.chat.send_channel_message` at the manager boundary. See `quick_chat/scripts/mods/quick_chat/quick_chat.lua` `_wrap_typed_chat` for the live pattern.
+**Chat input strips `{#…}` tags** from typed text (via `gsub(text, "{#.-}", "")` in `constant_element_chat.lua` ~line 1031), so to inject markup into typed messages you have to wrap `Managers.chat.send_channel_message` at the manager boundary. See `PrettyChat/scripts/mods/PrettyChat/PrettyChat.lua` `_wrap_typed_chat` for the live pattern.
 
-**PUA icon codepoints** (subset; full named list in `quick_chat/scripts/mods/quick_chat/quick_chat_icons.lua`):
+**PUA icon codepoints** (subset; full named list in `PrettyChat/scripts/mods/PrettyChat/icons.lua`):
 - Classes (detailed): Veteran U+E01A, Zealot U+E01B, Psyker U+E01C, Ogryn U+E01D
 - Classes (simple): Veteran U+E022, Zealot U+E023, Psyker U+E024, Ogryn U+E025
 - Special classes: Adamant U+E050, Broker U+E052
@@ -83,7 +85,7 @@ The `widget.style.icon.color` / `style.icon.visible` pattern works for **texture
 
 Populated ranges (from brute-force probe of U+E000–U+E1FF): U+E000–U+E054, U+E063–U+E077, U+E0C7–U+E0DF, U+E0EC–U+E0EF, U+E107–U+E119.
 
-LuaJIT `\u{XXXX}` escape support is uncertain in Bitsquid's Lua fork — compute UTF-8 bytes from a numeric codepoint at load time (see `quick_chat_icons.lua` `cp()` helper).
+LuaJIT `\u{XXXX}` escape support is uncertain in Bitsquid's Lua fork — compute UTF-8 bytes from a numeric codepoint at load time (see `PrettyChat/scripts/mods/PrettyChat/icons.lua` `cp()` helper).
 
 ## Psyker peril mechanics
 

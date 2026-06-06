@@ -1,0 +1,37 @@
+return {
+    mod_name = { en = "Pretty Chat" },
+    mod_description = { en = "Color and icon shortcodes for typed chat, with a live preview row." },
+    enable_check_mode = { en = "Check mode (echo locally, don't send)" },
+    enable_check_mode_desc = { en = "When on, typed messages are echoed back to you without being sent"
+        .. " — useful for previewing markup without spamming the channel." },
+    default_chat_color = { en = "Default chat color" },
+    default_chat_color_desc = { en = "If set, all of your typed messages get wrapped in this color"
+        .. " unless overridden by an inline [color]…[/] tag." },
+    cycle_chat_color_hotkey = { en = "Cycle default chat color (forward)" },
+    cycle_chat_color_hotkey_desc = { en = "Cycles through none → all palette colors alphabetically." },
+    cycle_chat_color_backward_hotkey = { en = "Cycle default chat color (backward)" },
+    cycle_chat_color_backward_hotkey_desc = { en = "Cycles backwards through the same order." },
+    debug = { en = "Debug" },
+    probe_icons_hotkey = { en = "Probe characters" },
+    probe_icons_hotkey_desc = { en = "Echoes the Private Use Area codepoints to local chat"
+        .. " so you can visually identify which ones render as glyphs." },
+    list_icons_hotkey = { en = "List named icons" },
+    list_icons_hotkey_desc = { en = "Echoes every named icon from icons.lua with section headers and its glyph." },
+    list_colors_hotkey = { en = "List named colors" },
+    list_colors_hotkey_desc = { en = "Echoes every named color with a wrapped sample so you can preview the palette." },
+    -- Default-chat-color dropdown option labels.
+    color_none    = { en = "None" },
+    color_white   = { en = "White" },
+    color_gold    = { en = "Gold" },
+    color_yellow  = { en = "Yellow" },
+    color_cyan    = { en = "Cyan" },
+    color_red     = { en = "Red" },
+    color_crimson = { en = "Crimson" },
+    color_amber   = { en = "Amber" },
+    color_purple  = { en = "Purple" },
+    color_nurgle  = { en = "Nurgle" },
+    color_blue    = { en = "Blue" },
+    color_brass   = { en = "Brass" },
+    color_pink    = { en = "Pink" },
+    color_green   = { en = "Green" },
+}
