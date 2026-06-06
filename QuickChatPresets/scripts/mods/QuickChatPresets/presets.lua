@@ -19,7 +19,7 @@ return {
         title = "Psyker explode (self)",
         message = {
             "It has been [red]0[/] days without a brain incident.",
-            "[pink]The voices\xe2\x80\xa6[/]",
+            "[pink]The voices…[/]",
         }
     },
     {
@@ -29,9 +29,9 @@ return {
             "[lime]Daemonhost![/]",
             "[lime]I sense a Daemonhost![/]",
             "[lime]I think I hear a Daemonhost?[/]",
-            "[lime]Oh hel\xe2\x80\xa6 It's a Daemonhost![/]",
+            "[lime]Oh hel…it's a Daemonhost![/]",
             "[lime]Stay alert! A Daemonhost![/]",
-            "[lime]Throne\xe2\x80\xa6 It's a fragging Daemonhost![/]",
+            "[lime]Throne…it's a fragging Daemonhost![/]",
         }
     },
     {
@@ -62,7 +62,7 @@ return {
     {
         id = "deploy_med_self",
         title = "Deploy Med (self)",
-        message = ":check_badge: Medi-pack deployed!"
+        message = ":xbox_dpad: Medi-pack deployed!"
     },
     {
         id = "deploy_med_others",
@@ -72,7 +72,7 @@ return {
     {
         id = "deploy_ammo_self",
         title = "Deploy Ammo (self)",
-        message = ":bolt: Ammo crate deployed!"
+        message = ":melkbucks: Ammo crate deployed!"
     },
     {
         id = "deploy_ammo_others",
