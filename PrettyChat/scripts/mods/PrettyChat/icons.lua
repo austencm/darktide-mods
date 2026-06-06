@@ -9,14 +9,16 @@
     Codepoints sourced from:
     - scripts/settings/ui/ui_settings.lua (classes, weapon trait, digital clock)
     - scripts/settings/input/input_locale_name_overrides.lua (controller/mouse)
-    - Brute-force probe of U+E000-U+E1FF (everything else)
+    - Brute-force probe of U+E000-U+E1FF + visual identification
 
     Usage:
         local icons = mod._icons
         chat_message = icons.psyker .. " MY HEAD"
 
     The ordered list of all known icons is exposed at `icons._list` for the
-    debug dump function (mod.list_icons).
+    debug dump function (mod.list_icons). Entries within each section are
+    sorted by codepoint, except the Xbox / PlayStation controller sections
+    which keep visual button order (A/B/X/Y, cross/circle/square/triangle).
 ]]
 
 local function cp(n)
@@ -66,22 +68,22 @@ add("arbites",        0xE050)
 add("hive_scum",      0xE052)
 
 -- ============================================================
--- Status / UI symbols
+-- Status / UI
 -- ============================================================
 section("Status / UI")
-add("darktide_d",  0xE000)
-add("check",       0xE001)
-add("lock",        0xE002)
-add("unlock",      0xE003)
-add("social",      0xE005)
-add("skull_round", 0xE007)
-add("item_rating", 0xE01F)
+add("darktide_d",   0xE000)
+add("check",        0xE001)
+add("lock",         0xE002)
+add("unlock",       0xE003)
+add("social",       0xE005)
+add("player_level", 0xE006)
+add("timer",        0xE007)
+add("item_rating",  0xE01F)
 
 -- ============================================================
--- Arrows / chevrons
+-- Arrows
 -- ============================================================
 section("Arrows")
-add("chevron_up",  0xE006)
 add("arrow_up",    0xE008)
 add("arrow_right", 0xE009)
 add("arrow_down",  0xE00A)
@@ -94,15 +96,15 @@ section("Combat / Faction")
 add("skull_banner", 0xE004)
 add("skull",        0xE01E)
 add("peril",        0xE021)
+add("sword",        0xE026)
+add("aquilas",      0xE040)
+add("penance",      0xE041)
+add("head_circled", 0xE042)
 add("skull_elite",  0xE044)
 add("banner",       0xE045)
 add("seal",         0xE046)
-add("sword",        0xE026)
-add("aquilas",      0xE040)
-add("crown",        0xE04E)
 add("crown_x",      0xE049)
-add("penance",      0xE041)
-add("head_circled", 0xE042)
+add("crown",        0xE04E)
 add("havoc",        0xE04F)
 add("dog",          0xE051)
 
@@ -112,18 +114,18 @@ add("dog",          0xE051)
 section("Sigils / Powers")
 add("flame",     0xE020)
 add("lightning", 0xE027)
-add("bolt",      0xE02B)
+add("star",      0xE02A)
 add("mastery",   0xE02E)
 add("award",     0xE032)
-add("star",      0xE02A)
 
 -- ============================================================
 -- Currency / Resources
 -- ============================================================
 section("Currency / Resources")
-add("coins",           0xE031)
-add("scrap",           0xE02D)
+add("melkbucks",       0xE02B)
 add("diamantine",      0xE02C)
+add("scrap",           0xE02D)
+add("coins",           0xE031)
 add("blessing_points", 0xE048)
 add("commissary",      0xE04D)
 add("salvage",         0xE053)
@@ -135,11 +137,11 @@ add("tech_remnants",   0xE054)
 section("Tools / Misc")
 add("check_badge", 0xE028)
 add("gear_wrench", 0xE029)
-add("magnifier",   0xE04A)
-add("audio",       0xE047)
-add("tags",        0xE033)
-add("copy",        0xE070)
 add("blank",       0xE02F)
+add("tags",        0xE033)
+add("audio",       0xE047)
+add("magnifier",   0xE04A)
+add("copy",        0xE070)
 
 -- ============================================================
 -- Communication / Emote
@@ -172,23 +174,24 @@ add("mouse_left",       0xE063)
 add("mouse_right",      0xE064)
 add("mouse_middle",     0xE065)
 add("mouse_wheel",      0xE066)
-add("mouse_wheel_up",   0xE06E)
-add("mouse_wheel_down", 0xE06D)
-add("mouse_extra_1",    0xE068)
 add("mouse_extra_2",    0xE067)
+add("mouse_extra_1",    0xE068)
+add("mouse_wheel_down", 0xE06D)
+add("mouse_wheel_up",   0xE06E)
 
 -- ============================================================
 -- Other input devices
 -- ============================================================
 section("Input devices")
-add("keyboard",       0xE069)
-add("gamepad",        0xE06A)
-add("controller_alt", 0xE06B)
-add("xbox_logo",      0xE06C)
-add("globe",          0xE06F)
+add("keyboard",    0xE069)
+add("gamepad",     0xE06A)
+add("steam",       0xE06B)
+add("xbox",        0xE06C)
+add("globe",       0xE06F)
+add("playstation", 0xE071)
 
 -- ============================================================
--- Xbox controller
+-- Xbox controller (kept in visual button order)
 -- ============================================================
 section("Xbox controller")
 add("xbox_a",              0xE0C7)
@@ -196,7 +199,8 @@ add("xbox_b",              0xE0C8)
 add("xbox_x",              0xE0C9)
 add("xbox_y",              0xE0CA)
 add("xbox_back",           0xE0D4)
-add("xbox_start",          0xE0D3)
+add("xbox_menu",          0xE0D3)
+add("xbox_dpad",          0xE0D5)
 add("xbox_dpad_up",        0xE0D6)
 add("xbox_dpad_down",      0xE0D8)
 add("xbox_dpad_left",      0xE0D9)
@@ -209,7 +213,7 @@ add("xbox_left_stick",     0xE0DE)
 add("xbox_right_stick",    0xE0DF)
 
 -- ============================================================
--- PlayStation controller
+-- PlayStation controller (kept in visual button order)
 -- ============================================================
 section("PlayStation controller")
 add("ps_cross",      0xE10A)
