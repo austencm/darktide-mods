@@ -48,7 +48,7 @@ end
 
 -- Echo every named icon, in registration order, with section headers.
 mod.list_icons = function(per_line)
-    per_line = per_line or 4
+    per_line = per_line or 1
     local icons = mod._icons
     if not icons or not icons._list then
         mod:echo("icons not loaded yet — reload the mod")
@@ -66,9 +66,10 @@ mod.list_icons = function(per_line)
     for _, entry in ipairs(icons._list) do
         if entry.section then
             flush()
-            mod:echo("== " .. entry.section .. " ==")
+            mod:echo("")
+            mod:echo("=== " .. entry.section .. " ===")
         else
-            buffer[#buffer + 1] = entry.name .. ":" .. entry.glyph
+            buffer[#buffer + 1] = entry.glyph .. " " .. entry.name
             if #buffer >= per_line then
                 flush()
             end
