@@ -97,8 +97,8 @@ mod.list_colors = function()
     table.sort(names)
 
     for _, name in ipairs(names) do
-        local sample = mod.wrap_color("the quick brown fox", name)
-        mod:echo(name .. ": " .. sample)
+        local sample = mod.wrap_color(name, name)
+        mod:echo(sample)
     end
 end
 
