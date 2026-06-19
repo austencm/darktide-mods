@@ -159,46 +159,63 @@ end
 -- access violation. local_player_safe guards on Managers.connection being
 -- initialized and returns nil otherwise — exactly what we want.
 --
--- DO NOT detect class via `unit_data:read_component("warp_charge")`. That
--- component is present on every Imperium player unit (Vet, Zealot, Ogryn,
--- Psyker) — verified empirically when our cache flipped to true for a
--- Veteran 18ms after spawn as the component finished registering. Use
--- the canonical archetype check that `action_psyker_push` itself uses.
-local function check_is_local_player_psyker()
+-- Read archetype from the Player's profile (HumanPlayer:archetype_name), NOT
+-- from `unit_data:archetype()`. The unit_data_system extension is attached
+-- asynchronously AFTER `assign_player_unit_ownership` fires — verified
+-- empirically: training-entry logs show `unit=true alive=true unit_data=false`
+-- on the assign event, then `unit_data=true archetype=psyker` 16ms later from
+-- a follow-up game_state_changed. For in-mission character swaps there's no
+-- follow-up state change, so the unit-data path stays stuck on archetype=nil.
+-- The profile is set via HumanPlayer:set_profile BEFORE the unit spawns, so
+-- `player:archetype_name()` is reliable as soon as the Player object exists.
+-- Also: DO NOT detect Psyker via `unit_data:read_component("warp_charge")` —
+-- that component is on every Imperium player unit (Vet/Zealot/Ogryn/Psyker).
+--
+-- `reason` (optional): a tag identifying which lifecycle trigger called this.
+-- When `debug_dump` is on AND a reason is passed (i.e. we're refreshing the
+-- cache, not just running the per-frame HUD validation probe), log the full
+-- decision context. Lets us confirm the cache triggers fire on character
+-- swap and that they see accurate state. Pass nil from the HUD probe to
+-- suppress per-frame log spam.
+local function check_is_local_player_psyker(reason)
 	local player_manager = Managers.player
 	local player = player_manager and player_manager:local_player_safe(1)
-	local unit = player and player.player_unit
-	if not unit or not Unit.alive(unit) then return false end
-	local unit_data = ScriptUnit.has_extension(unit, "unit_data_system")
-	if not unit_data or not unit_data.archetype then return false end
-	local archetype = unit_data:archetype()
-	return archetype and archetype.name == "psyker"
+	local archetype_name = nil
+	if player and player.archetype_name then
+		archetype_name = player:archetype_name()
+	end
+	local result = archetype_name == "psyker"
+
+	if reason and mod.settings.debug_dump then
+		local game_mode_manager = Managers.state and Managers.state.game_mode
+		local game_mode = game_mode_manager and game_mode_manager:game_mode_name() or "<?>"
+		pcall(print, string.format(
+			"[KeepYourHead] cache-refresh reason=%s old=%s new=%s player=%s archetype=%s game_mode=%s",
+			tostring(reason),
+			tostring(is_local_player_psyker),
+			tostring(result),
+			tostring(player ~= nil),
+			tostring(archetype_name or "<nil>"),
+			tostring(game_mode)
+		))
+	end
+
+	return result
 end
 
--- Engine `assign_player_unit_ownership` fires from `PlayerUnitSpawnManager`
--- AFTER `player.player_unit = unit` is set and all extensions are live, on
--- both server and client. This is the only signal that reliably catches
--- character swaps that bypass the hub (e.g. SoloPlay-style direct re-entry
--- into Psykhanium after picking a different class) — game_state_changed
--- alone fires before the new player_unit is in place. Counterpart
--- `player_unit_despawned` flips us back off so the cache doesn't lie about
--- a stale unit during the between-missions gap. The mod stays subscribed
--- for the whole game session; EventManager has no per-state teardown.
+-- `event_player_set_profile` fires from HumanPlayer:set_profile (verified in
+-- scripts/managers/player/human_player.lua:124) whenever a Player's profile is
+-- assigned. This is the canonical "character changed" signal — fires for
+-- initial character selection AND mid-mission swaps, before any unit spawns,
+-- and the profile.archetype.name is populated by the time it fires. Combined
+-- with reading archetype off the Player object (not the unit_data extension),
+-- this is the only event we need for cache maintenance — no fallbacks
+-- required for the unit-extension attach race we previously had to work
+-- around. The mod stays subscribed for the whole game session.
 local event_subscriber = {}
 
--- We don't filter by identity on the event arg — in solo training and
--- some character-swap paths, `local_player_safe(1)` returned nil or a
--- stale Player object, so the identity check silently swallowed the real
--- update. Recomputing from authoritative state (Managers.player →
--- local_player_safe → player.player_unit → warp_charge component) is
--- robust against whichever player the event is for, since
--- check_is_local_player_psyker always looks at the LOCAL player.
-event_subscriber.on_assign_player_unit_ownership = function(self, player, unit)
-	is_local_player_psyker = check_is_local_player_psyker()
-end
-
-event_subscriber.on_player_unit_despawned = function(self, player)
-	is_local_player_psyker = check_is_local_player_psyker()
+event_subscriber.on_player_set_profile = function(self, player, profile)
+	is_local_player_psyker = check_is_local_player_psyker("event_player_set_profile")
 end
 
 local function ensure_event_subscriptions()
@@ -206,23 +223,21 @@ local function ensure_event_subscriptions()
 	if not event_manager then return end
 	-- Unregister-then-register is idempotent on EventManager (unregister no-ops
 	-- if not present), so we can call this freely on lifecycle hooks without
-	-- ending up with duplicate callbacks.
-	event_manager:unregister(event_subscriber, "assign_player_unit_ownership")
-	event_manager:register(event_subscriber, "assign_player_unit_ownership", "on_assign_player_unit_ownership")
-	event_manager:unregister(event_subscriber, "player_unit_despawned")
-	event_manager:register(event_subscriber, "player_unit_despawned", "on_player_unit_despawned")
+	-- ending up with duplicate callbacks. Defensive against EventManager being
+	-- destroyed and rebuilt across some state transition.
+	event_manager:unregister(event_subscriber, "event_player_set_profile")
+	event_manager:register(event_subscriber, "event_player_set_profile", "on_player_set_profile")
 end
 
 mod.on_game_state_changed = function(status, state_name)
 	is_in_hub = check_is_in_hub()
 	ensure_event_subscriptions()
-	is_local_player_psyker = check_is_local_player_psyker()
 end
 
 mod.on_all_mods_loaded = function()
 	is_in_hub = check_is_in_hub()
 	ensure_event_subscriptions()
-	is_local_player_psyker = check_is_local_player_psyker()
+	is_local_player_psyker = check_is_local_player_psyker("on_all_mods_loaded")
 end
 
 -- Warp Unbound (talent that powers up Scrier's Gaze) grants the buff
