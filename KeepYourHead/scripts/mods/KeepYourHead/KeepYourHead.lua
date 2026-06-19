@@ -611,6 +611,51 @@ end
 mod:hook("InputService", "_get", input_hook)
 mod:hook("InputService", "_get_simulate", input_hook)
 
+-- Queue-layer gate: drop already-queued action inputs that should_block would
+-- block right now. Closes the buffer-time race in the engine's action-input
+-- system: a `trigger_charge_flame` queued at sub-threshold peril during an
+-- RMB-hold survives in the queue for up to 0.5s; if peril ticks past lockout
+-- during that window, the engine consumes the queued input and ActionOverload-
+-- Explosion._explode fires. Nuking the entry between ActionInputParser.fixed_
+-- update (which inserts into the queue) and the externally-driven network pack
+-- (which reads the queue for server replication) prevents the server from ever
+-- seeing the input.
+--
+-- Queue entry layout (verified from engine source):
+--   entry[1] = action input alias string (e.g. "trigger_charge_flame")
+--   entry[2] = underlying raw input string (e.g. "action_one_pressed")
+--   entry[3] = hierarchy_position depth array
+-- Sentinel for an empty slot is parser._NO_ACTION_INPUT.
+local ACTION_INPUT_FIELD = 1
+local RAW_INPUT_FIELD    = 2
+
+local function is_local_weapon_parser(parser)
+	if parser._action_component_name ~= "weapon_action" then return false end
+	local player_manager = Managers.player
+	local local_player = player_manager and player_manager:local_player_safe(1)
+	return local_player ~= nil and parser._player == local_player
+end
+
+mod:hook_safe("ActionInputParser", "fixed_update", function(self, unit, dt, t, fixed_frame)
+	if not is_local_player_psyker then return end
+	if not is_local_weapon_parser(self) then return end
+
+	local queue = self._action_input_queue and self._action_input_queue[self._ring_buffer_index]
+	if not queue then return end
+	local NO_ACTION_INPUT = self._NO_ACTION_INPUT
+	local NO_RAW_INPUT    = self._NO_RAW_INPUT
+
+	for i = 1, self._MAX_ACTION_INPUT_QUEUE do
+		local entry = queue[i]
+		if not entry or entry[ACTION_INPUT_FIELD] == NO_ACTION_INPUT then break end
+		local raw = entry[RAW_INPUT_FIELD]
+		if raw and should_block(raw) then
+			entry[ACTION_INPUT_FIELD] = NO_ACTION_INPUT
+			entry[RAW_INPUT_FIELD]    = NO_RAW_INPUT
+		end
+	end
+end)
+
 mod:register_hud_element({
 	class_name = "HudElementKeepYourHeadWarning",
 	filename = "KeepYourHead/scripts/mods/KeepYourHead/HudElementKeepYourHeadWarning",
