@@ -9,4 +9,5 @@ return {
         })
     end,
     packages = {},
+    load_before = { "quick_chat" },
 }

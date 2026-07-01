@@ -9,4 +9,5 @@ return {
         })
     end,
     packages = {},
+    load_after = { "quick_chat", "QuickChatPresets" },
 }
