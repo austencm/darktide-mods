@@ -1,0 +1,266 @@
+local mod = get_mod("GhostRunner")
+local fs = mod.fs
+
+local SCHEMA_VERSION = 2
+
+-- Round numeric values to N decimals via format+tonumber round-trip.
+-- The tonumber strips trailing zeros: 0.50000 -> 0.5, 12.534823 -> 12.53.
+-- Stays within JSON-valid output; lets cjson.encode use minimal representation.
+local function round_to(n, decimals)
+    if type(n) ~= "number" then return n end
+    return tonumber(string.format("%." .. decimals .. "f", n))
+end
+
+local run_file = {}
+
+-- A "writer" is an object that holds an open file handle and can be
+-- fed metadata/frames/footer.
+local Writer = {}
+Writer.__index = Writer
+
+run_file.create_writer = function(filename, metadata)
+	local path = fs.runs_path(filename)
+	if not path then
+		return nil, "fs.runs_path returned nil (runs_root unavailable)"
+	end
+	local handle = fs.open_write(path)
+	if not handle then
+		return nil, "could not open " .. path
+	end
+
+	local self = setmetatable({}, Writer)
+	self._handle = handle
+	self._path = path
+	self._closed = false
+
+	-- Write metadata as the first line.
+	local meta = {
+		type = "meta",
+		schema = SCHEMA_VERSION,
+		player = metadata.player,
+		class = metadata.class,
+		wmax = metadata.wmax,   -- NEW: max wounds for the recorded player
+		mission = metadata.mission,
+		recorded_at = metadata.recorded_at,
+	}
+	handle:write(cjson.encode(meta) .. "\n")
+
+	return self
+end
+
+-- Append a frame. Caller is responsible for flush cadence.
+function Writer:append_frame(frame)
+	if self._closed then return end
+	-- Schema 2 frame format: no `type` discriminator (loader infers from
+	-- the absence of `schema` and `outcome`). Abbreviated keys. Numeric
+	-- rounding via round_to() so cjson emits minimal representation.
+	local p = frame.p
+	local row = {
+		t  = round_to(frame.t, 3),
+		p  = p and { round_to(p[1], 2), round_to(p[2], 2), round_to(p[3], 2) } or nil,
+		y  = round_to(frame.y, 3),
+		hp = round_to(frame.hp, 3),
+		to = round_to(frame.to, 3),
+		ab = round_to(frame.ab, 3),
+		w  = frame.w,
+		st = frame.st,
+		pg = round_to(frame.pg, 4),
+	}
+	self._handle:write(cjson.encode(row) .. "\n")
+end
+
+-- Flush the OS-level buffer. Lua I/O handle auto-flushes on close, but
+-- we want explicit periodic flushes for crash-safety.
+function Writer:flush()
+	if self._closed then return end
+	self._handle:flush()
+end
+
+-- Write the footer and close.
+function Writer:finalize(outcome, duration, seed_pinned, on_shutdown)
+	if self._closed then return end
+	local footer = {
+		type = "end",
+		outcome = outcome,
+		duration = duration,
+		seed_pinned = seed_pinned,
+		on_shutdown = on_shutdown,
+	}
+	self._handle:write(cjson.encode(footer) .. "\n")
+	self._handle:close()
+	self._closed = true
+end
+
+function Writer:abandon()
+	if self._closed then return end
+	self._handle:close()
+	self._closed = true
+end
+
+-- Translate a schema-1 frame to schema-2 fields in place. Old recordings
+-- have explicit `type:"f"`, `d` (bool), `peril`, and `prog`. New code
+-- expects `st` (string), no peril, `pg` instead of `prog`.
+local function _translate_schema1_frame(f)
+	if f.d ~= nil then
+		f.st = f.d and "knocked_down" or "walking"
+		f.d = nil
+	end
+	if f.prog ~= nil then
+		f.pg = f.prog
+		f.prog = nil
+	end
+	-- peril simply dropped on read; nothing renders it anymore
+	f.peril = nil
+	-- to and ab left absent — renderer hides those bars for schema-1 ghosts
+end
+
+-- Read a complete .run file. Returns {metadata, frames, footer, partial} or nil + error.
+run_file.read = function(filename)
+	local path = fs.runs_path(filename)
+	if not path then
+		return nil, "fs.runs_path returned nil"
+	end
+	local handle = fs.open_read(path)
+	if not handle then
+		return nil, "could not open " .. path
+	end
+
+	local meta, footer
+	local frames = {}
+
+	for line in handle:lines() do
+		if line and #line > 0 then
+			local ok, obj = pcall(cjson.decode, line)
+			if ok and type(obj) == "table" then
+				-- Schema-2 line-type inference: meta has `schema`, footer has
+				-- `outcome`, anything else is a frame. The explicit `type` field
+				-- is kept on meta+footer for forward compat & file debugging
+				-- but no longer required on frames (Tier 2 byte savings).
+				if obj.schema or obj.type == "meta" then
+					meta = obj
+				elseif obj.outcome or obj.type == "end" then
+					footer = obj
+				else
+					frames[#frames + 1] = obj
+				end
+			end
+		end
+	end
+
+	handle:close()
+
+	if not meta then
+		return nil, "metadata header missing or unparseable in " .. filename
+	end
+
+	if meta.schema and meta.schema > SCHEMA_VERSION then
+		return nil, string.format("unsupported schema version %d in %s", meta.schema, filename)
+	end
+
+	-- Translate schema-1 frames forward. Schema 2 frames pass through.
+	if meta.schema == 1 then
+		for i = 1, #frames do
+			_translate_schema1_frame(frames[i])
+		end
+	end
+
+	-- Sort frames by t ascending (defensive -- JSONL is naturally ordered).
+	table.sort(frames, function(a, b) return a.t < b.t end)
+
+	return {
+		metadata = meta,
+		frames = frames,
+		footer = footer,  -- nil if recording was abandoned
+		partial = footer == nil,
+	}
+end
+
+-- Index entry shape: { file, mission, difficulty, class, duration, outcome, recorded_at, seed, seed_pinned }
+
+local function _index_entry_from_run(filename, data)
+	return {
+		file = filename,
+		mission = data.metadata.mission and data.metadata.mission.name or "unknown",
+		difficulty = data.metadata.mission and data.metadata.mission.difficulty,
+		resistance = data.metadata.mission and data.metadata.mission.resistance,
+		class = data.metadata.class,
+		duration = data.footer and data.footer.duration or 0,
+		outcome = data.footer and data.footer.outcome or "partial",
+		recorded_at = data.metadata.recorded_at,
+		seed = data.metadata.mission and data.metadata.mission.seed,
+		seed_pinned = data.footer and data.footer.seed_pinned or false,
+	}
+end
+
+run_file.read_index = function()
+	local index_path = fs.index_path()
+	if not index_path then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	local handle = fs.open_read(index_path)
+	if not handle then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	local content = handle:read("*a")
+	handle:close()
+	if not content or #content == 0 then
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	local ok, obj = pcall(cjson.decode, content)
+	if not ok or type(obj) ~= "table" or type(obj.runs) ~= "table" then
+		mod:warning("index.json present but malformed; treating as empty (run /ghost rebuild_index to repair)")
+		return { schema = SCHEMA_VERSION, runs = {} }
+	end
+	return obj
+end
+
+run_file.write_index = function(index)
+	local index_path = fs.index_path()
+	if not index_path then return false end
+	-- Atomic write: write to .tmp, then rename via `move /Y`.
+	local tmp_path = index_path .. ".tmp"
+	local handle = fs.open_write(tmp_path)
+	if not handle then return false end
+	handle:write(cjson.encode(index))
+	handle:close()
+	local move_handle = Mods.lua.io.popen(string.format(
+		'move /Y "%s" "%s" 2>nul', tmp_path, index_path))
+	if move_handle then move_handle:close() end
+	return true
+end
+
+run_file.append_to_index = function(filename, data)
+	local index = run_file.read_index()
+	-- Remove any existing entry for this filename (shouldn't happen, but be safe).
+	local kept = {}
+	for _, e in ipairs(index.runs) do
+		if e.file ~= filename then kept[#kept + 1] = e end
+	end
+	kept[#kept + 1] = _index_entry_from_run(filename, data)
+	index.runs = kept
+	-- Sort by recorded_at descending (newest first).
+	table.sort(index.runs, function(a, b)
+		return (a.recorded_at or "") > (b.recorded_at or "")
+	end)
+	return run_file.write_index(index)
+end
+
+-- Rebuild index by scanning the runs folder. Slow if many runs; rare path.
+run_file.rebuild_index = function()
+	local files = fs.list_run_files()
+	local entries = {}
+	for _, filename in ipairs(files) do
+		local data = run_file.read(filename)
+		if data then
+			entries[#entries + 1] = _index_entry_from_run(filename, data)
+		end
+	end
+	table.sort(entries, function(a, b)
+		return (a.recorded_at or "") > (b.recorded_at or "")
+	end)
+	return run_file.write_index({ schema = SCHEMA_VERSION, runs = entries })
+end
+
+run_file.SCHEMA_VERSION = SCHEMA_VERSION
+
+return run_file
